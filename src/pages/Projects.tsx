@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, FolderPlus, Filter, ArrowUpDown, X, Image as ImageIcon, LayoutGrid, List } from 'lucide-react';
 import { Project } from '../types';
@@ -21,6 +21,59 @@ interface ProjectsPageProps {
 
 type SortMode = 'date' | 'name' | 'engine';
 
+type VcsMode = 'inherit' | 'git' | 'diversion' | 'both' | 'none';
+
+const VcsModePicker: React.FC<{
+    value: VcsMode;
+    onChange: (v: VcsMode) => void;
+    t: (k: string) => string;
+}> = ({ value, onChange, t }) => {
+    const options: { key: VcsMode; label: string }[] = [
+        { key: 'inherit', label: t('projects.vcsModeInherit') },
+        { key: 'git', label: 'Git' },
+        { key: 'diversion', label: 'Diversion' },
+        { key: 'both', label: t('projects.vcsModeBoth') },
+        { key: 'none', label: t('projects.vcsModeNone') },
+    ];
+    return (
+        <div className="grid grid-cols-5 gap-1 bg-slate-800/60 p-1 rounded-lg border border-white/[0.04]">
+            {options.map(opt => (
+                <button
+                    key={opt.key}
+                    onClick={() => onChange(opt.key)}
+                    className={`px-2 py-1.5 rounded-md text-[11px] font-semibold transition-colors text-center ${
+                        value === opt.key
+                            ? 'bg-[var(--accent-color)] text-white shadow'
+                            : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                >
+                    {opt.label}
+                </button>
+            ))}
+        </div>
+    );
+};
+
+function prefToMode(pref: import('../types').ProjectVcsPref | undefined): VcsMode {
+    if (!pref) return 'inherit';
+    if (pref.git === 'on' && pref.diversion === 'on') return 'both';
+    if (pref.git === 'off' && pref.diversion === 'off') return 'none';
+    if (pref.git === 'on') return 'git';
+    if (pref.diversion === 'on') return 'diversion';
+    return 'inherit';
+}
+
+function modeToPref(mode: VcsMode): import('../types').ProjectVcsPref | null {
+    switch (mode) {
+        case 'git': return { git: 'on', diversion: 'off' };
+        case 'diversion': return { git: 'off', diversion: 'on' };
+        case 'both': return { git: 'on', diversion: 'on' };
+        case 'none': return { git: 'off', diversion: 'off' };
+        case 'inherit':
+        default: return null;
+    }
+}
+
 export const ProjectsPage: React.FC<ProjectsPageProps> = ({ onOpenGit, onOpenConfig, onOpenDiversion }) => {
     const { t } = useTranslation();
     const { reduceAnimations } = useAppearance();
@@ -40,6 +93,28 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({ onOpenGit, onOpenCon
     const [isDragOverModal, setIsDragOverModal] = useState(false);
     const [showGit] = useState(() => localStorage.getItem('showGitIntegration') !== 'false');
     const [showDiversion] = useState(() => localStorage.getItem('showDiversionIntegration') === 'true');
+    const [vcsPrefs, setVcsPrefs] = useState<Record<string, import('../types').ProjectVcsPref>>({});
+    const [editVcsMode, setEditVcsMode] = useState<VcsMode>('inherit');
+
+    const loadVcsPrefs = useCallback(async () => {
+        try {
+            const data = await window.unreal.getProjectVcsPrefs();
+            setVcsPrefs(data);
+        } catch (e) {
+            console.error('Failed to load VCS prefs', e);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadVcsPrefs();
+    }, [loadVcsPrefs]);
+
+    const effectiveShow = useCallback((projectPath: string, kind: 'git' | 'diversion') => {
+        const pref = vcsPrefs[projectPath]?.[kind];
+        if (pref === 'on') return true;
+        if (pref === 'off') return false;
+        return kind === 'git' ? showGit : showDiversion;
+    }, [vcsPrefs, showGit, showDiversion]);
 
     const [viewMode, setViewMode] = useState<'grid' | 'list'>(() =>
         (localStorage.getItem('projectViewMode') as 'grid' | 'list') || 'grid'
@@ -125,7 +200,8 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({ onOpenGit, onOpenCon
         setEditName(project.name);
         setEditThumb(project.thumbnail);
         setEditLaunchProfiles(project.launchProfiles || []);
-    }, []);
+        setEditVcsMode(prefToMode(vcsPrefs[project.path]));
+    }, [vcsPrefs]);
 
     const handleLaunch = useCallback((projectPath: string, args?: string) => {
         handleAction(async () => window.unreal.launchProject(projectPath, args));
@@ -134,6 +210,10 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({ onOpenGit, onOpenCon
     const handleSaveEdit = async () => {
         if (!editingProject) return;
         await window.unreal.updateProjectDetails(editingProject.path, { name: editName, thumbnail: editThumb, launchProfiles: editLaunchProfiles });
+
+        await window.unreal.saveProjectVcsPref(editingProject.path, modeToPref(editVcsMode));
+        await loadVcsPrefs();
+
         setEditingProject(null);
         loadProjects();
     };
@@ -502,6 +582,21 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({ onOpenGit, onOpenCon
                                     </div>
                                 )}
                             </div>
+
+                            <div className="pt-4 border-t border-slate-800">
+                                <label className="block text-xs font-bold text-slate-300 uppercase mb-2">
+                                    {t('projects.vcsSectionTitle')}
+                                </label>
+                                <p className="text-[11px] text-slate-500 mb-3">
+                                    {t('projects.vcsSectionDesc', { defaultValue: `Inherit uses the global defaults from Settings (Git: ${showGit ? 'on' : 'off'}, Diversion: ${showDiversion ? 'on' : 'off'}).` })}
+                                </p>
+
+                                <VcsModePicker
+                                    value={editVcsMode}
+                                    onChange={setEditVcsMode}
+                                    t={t as unknown as (k: string) => string}
+                                />
+                            </div>
                         </div>
                         <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-slate-800">
                             <button
@@ -685,8 +780,8 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({ onOpenGit, onOpenCon
                         viewMode={viewMode}
                         cardSize={cardSize}
                         reduceAnimations={reduceAnimations}
-                        showGit={showGit}
-                        showDiversion={showDiversion}
+                        showGit={effectiveShow(project.path, 'git')}
+                        showDiversion={effectiveShow(project.path, 'diversion')}
                         isFavorite={favorites.includes(project.path)}
                         projectSize={projectSizes[project.path] || 0}
                         tags={allTags[project.path] || []}

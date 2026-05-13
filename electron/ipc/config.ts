@@ -1,9 +1,15 @@
 import { ipcMain } from 'electron';
 import {
     loadConfig, saveConfig,
-    TAGS_PATH, FAVORITES_PATH, NOTES_PATH,
+    TAGS_PATH, FAVORITES_PATH, NOTES_PATH, VCS_PREFS_PATH,
     readJsonFile, writeJsonFile
 } from '../services/configStore';
+
+export type VcsState = 'on' | 'off';
+export interface ProjectVcsPref {
+    git?: VcsState;
+    diversion?: VcsState;
+}
 
 export function registerConfigHandlers() {
     ipcMain.handle('get-config-paths', async () => {
@@ -52,5 +58,27 @@ export function registerConfigHandlers() {
 
     ipcMain.handle('save-project-notes', async (_, notes: Record<string, string>) => {
         await writeJsonFile(NOTES_PATH, notes);
+    });
+
+    // ── VCS integration prefs (per project) ──
+    ipcMain.handle('get-project-vcs-prefs', async () => {
+        return readJsonFile<Record<string, ProjectVcsPref>>(VCS_PREFS_PATH, {});
+    });
+
+    ipcMain.handle('save-project-vcs-pref', async (_, projectPath: string, pref: ProjectVcsPref | null) => {
+        const all = await readJsonFile<Record<string, ProjectVcsPref>>(VCS_PREFS_PATH, {});
+        if (!pref || (pref.git === undefined && pref.diversion === undefined)) {
+            delete all[projectPath];
+        } else {
+            const next: ProjectVcsPref = {};
+            if (pref.git === 'on' || pref.git === 'off') next.git = pref.git;
+            if (pref.diversion === 'on' || pref.diversion === 'off') next.diversion = pref.diversion;
+            if (Object.keys(next).length === 0) {
+                delete all[projectPath];
+            } else {
+                all[projectPath] = next;
+            }
+        }
+        await writeJsonFile(VCS_PREFS_PATH, all);
     });
 }

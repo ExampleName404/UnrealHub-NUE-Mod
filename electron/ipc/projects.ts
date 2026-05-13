@@ -558,6 +558,10 @@ export function registerProjectHandlers() {
         return kanbanData[projectPath] || null;
     });
 
+    ipcMain.handle('get-all-project-kanbans', async () => {
+        return readJsonFile<Record<string, any>>(KANBAN_PATH, {});
+    });
+
     ipcMain.handle('save-project-kanban', async (_, projectPath: string, board: any) => {
         const kanbanData = await readJsonFile<Record<string, any>>(KANBAN_PATH, {});
         kanbanData[projectPath] = board;

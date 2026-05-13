@@ -11,6 +11,7 @@ const GitHistoryPage = lazy(() => import('../../pages/GitHistory').then(module =
 const ConfigEditorPage = lazy(() => import('../../pages/ConfigEditorPage').then(module => ({ default: module.ConfigEditorPage })));
 const MarketplacePage = lazy(() => import('../../pages/MarketplacePage').then(module => ({ default: module.MarketplacePage })));
 const DiversionHistoryPage = lazy(() => import('../../pages/DiversionHistory').then(module => ({ default: module.DiversionHistoryPage })));
+const KanbanPage = lazy(() => import('../../pages/KanbanPage').then(module => ({ default: module.KanbanPage })));
 
 export const AppLayout: React.FC = () => {
     const [view, setView] = useState<View | 'git' | 'config' | 'marketplace' | 'diversion'>('projects');
@@ -124,6 +125,11 @@ export const AppLayout: React.FC = () => {
                             <div className="flex-1 min-h-0">
                                 {view === 'projects' && <ProjectsPage onOpenGit={handleOpenGit} onOpenConfig={handleOpenConfig} onOpenDiversion={handleOpenDiversion} />}
                                 {view === 'engines' && <EnginesPage />}
+                                {view === 'kanban' && (
+                                    <Suspense fallback={<div className="flex items-center justify-center h-full text-slate-500 text-sm">Loading Kanban...</div>}>
+                                        <KanbanPage />
+                                    </Suspense>
+                                )}
                                 {view === 'settings' && <SettingsPage />}
                             </div>
                         </div>

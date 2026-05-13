@@ -83,6 +83,7 @@ declare global {
             getProjectNotes: () => Promise<Record<string, string>>;
             saveProjectNotes: (notes: Record<string, string>) => Promise<void>;
             getProjectKanban: (path: string) => Promise<KanbanBoard | null>;
+            getAllProjectKanbans: () => Promise<Record<string, KanbanBoard>>;
             saveProjectKanban: (path: string, board: KanbanBoard) => Promise<void>;
             getProjectConfigs: (path: string) => Promise<string[]>;
             readRawIniFile: (path: string, fileName: string) => Promise<string>;
@@ -118,6 +119,10 @@ declare global {
             epicStoreClientSecret: (secret: string) => Promise<boolean>;
             epicClearClientSecret: () => Promise<boolean>;
 
+            // Per-project VCS integration prefs
+            getProjectVcsPrefs: () => Promise<Record<string, ProjectVcsPref>>;
+            saveProjectVcsPref: (projectPath: string, pref: ProjectVcsPref | null) => Promise<void>;
+
             // Diversion (dv CLI integration)
             diversionCheckCli: () => Promise<{
                 available: boolean;
@@ -145,6 +150,12 @@ declare global {
             }>;
         };
     }
+}
+
+export type VcsState = 'on' | 'off';
+export interface ProjectVcsPref {
+    git?: VcsState;
+    diversion?: VcsState;
 }
 
 export interface DiversionStatusCounts {

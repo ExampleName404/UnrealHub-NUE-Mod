@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld('unreal', {
   getProjectNotes: () => ipcRenderer.invoke('get-project-notes'),
   saveProjectNotes: (notes: Record<string, string>) => ipcRenderer.invoke('save-project-notes', notes),
   getProjectKanban: (path: string) => ipcRenderer.invoke('get-project-kanban', path),
+  getAllProjectKanbans: () => ipcRenderer.invoke('get-all-project-kanbans'),
   saveProjectKanban: (path: string, board: KanbanBoard) => ipcRenderer.invoke('save-project-kanban', path, board),
   getProjectConfigs: (path: string) => ipcRenderer.invoke('get-project-configs', path),
   readRawIniFile: (path: string, fileName: string) => ipcRenderer.invoke('read-raw-ini-file', path, fileName),
@@ -91,6 +92,11 @@ contextBridge.exposeInMainWorld('unreal', {
 
   // App info
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+
+  // Per-project VCS integration prefs
+  getProjectVcsPrefs: () => ipcRenderer.invoke('get-project-vcs-prefs'),
+  saveProjectVcsPref: (projectPath: string, pref: { git?: 'on' | 'off'; diversion?: 'on' | 'off' } | null) =>
+    ipcRenderer.invoke('save-project-vcs-pref', projectPath, pref),
 
   // Diversion (dv CLI integration)
   diversionCheckCli: () => ipcRenderer.invoke('diversion-check-cli'),

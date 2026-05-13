@@ -10,6 +10,7 @@ export const NOTES_PATH = path.join(app.getPath('userData'), 'project-notes.json
 export const KANBAN_PATH = path.join(app.getPath('userData'), 'project-kanban.json');
 export const SIZES_CACHE_PATH = path.join(app.getPath('userData'), 'project-sizes.json');
 export const EXCLUDED_PATH = path.join(app.getPath('userData'), 'excluded-projects.json');
+export const VCS_PREFS_PATH = path.join(app.getPath('userData'), 'project-vcs-prefs.json');
 
 export interface ProjectOverride {
     name?: string;
