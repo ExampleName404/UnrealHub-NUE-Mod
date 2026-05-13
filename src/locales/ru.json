@@ -60,6 +60,8 @@
     "extraSettings": "Дополнительные настройки",
     "gitIntegration": "Интеграция Git",
     "gitIntegrationDesc": "Показывает кнопку истории Git на карточках проектов. (Требуется установленный Git)",
+    "diversionIntegration": "Интеграция Diversion",
+    "diversionIntegrationDesc": "Показывает кнопку истории Diversion на привязанных проектах. Нужен API-токен.",
     "appearance": "Внешний вид",
     "language": "Язык",
     "accentColor": "Акцентный цвет",
@@ -83,6 +85,20 @@
       "modalSave": "Сохранить",
       "storeFailed": "Не удалось сохранить секрет",
       "storeError": "Ошибка при сохранении секрета"
+    },
+    "diversion": {
+      "sectionTitle": "Diversion VCS",
+      "sectionDesc": "Использует локальную CLI 'dv', установленную на компьютере",
+      "cliLabel": "Статус CLI",
+      "cliChecking": "Проверка 'dv'...",
+      "cliInstalled": "Установлен",
+      "cliMissing": "Не найден",
+      "recheck": "Проверить",
+      "install": "Скачать",
+      "showDetails": "Подробнее",
+      "hideDetails": "Скрыть",
+      "errorLabel": "Ошибка",
+      "searchedLabel": "Искали 'dv' в"
     },
     "colors": {
       "blue": "Синий",
@@ -136,6 +152,27 @@
     "error": "Не удалось загрузить историю Git.",
     "notRepo": "Этот проект не является корректным Git-репозиторием.",
     "current": "Текущий"
+  },
+  "diversion": {
+    "title": "История Diversion",
+    "loading": "Загрузка коммитов...",
+    "cliMissingTitle": "CLI 'dv' не найдена",
+    "cliMissingDesc": "Установи утилиту 'dv' с diversion.dev и убедись, что она в PATH. Затем вернись сюда и нажми Обновить.",
+    "cliDownload": "Открыть страницу загрузки",
+    "notRepo": "Эта папка не является Diversion-репозиторием.",
+    "notRepoHint": "Выполни 'dv clone <repo>' или 'dv init' в папке проекта.",
+    "loadFailed": "Ошибка команды dv: {{error}}",
+    "noCommits": "Коммитов ещё нет.",
+    "noMessage": "(без сообщения)",
+    "showRaw": "Показать сырой 'dv log'",
+    "hideRaw": "Скрыть сырой вывод",
+    "statusHeader": "Статус воркспейса",
+    "statusNew": "Новых",
+    "statusModified": "Изменено",
+    "statusDeleted": "Удалено",
+    "branchLabel": "Ветка",
+    "refresh": "Обновить",
+    "menuItem": "История Diversion"
   },
   "contextMenu": {
     "launch": "Запустить проект",

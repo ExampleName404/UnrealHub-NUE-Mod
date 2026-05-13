@@ -60,6 +60,8 @@
     "extraSettings": "Ekstra Ayarlar",
     "gitIntegration": "Git Entegrasyonu",
     "gitIntegrationDesc": "Proje kartlarında Git geçmişi butonunu gösterir. (Git kurulu olmalıdır)",
+    "diversionIntegration": "Diversion Entegrasyonu",
+    "diversionIntegrationDesc": "Bağlı projelerde Diversion geçmişi butonu gösterir. API token gerekir.",
     "appearance": "Görünüm",
     "language": "Dil",
     "accentColor": "Tema Rengi",
@@ -83,6 +85,20 @@
       "modalSave": "Kaydet",
       "storeFailed": "Secret kaydedilemedi",
       "storeError": "Secret kaydedilirken hata"
+    },
+    "diversion": {
+      "sectionTitle": "Diversion VCS",
+      "sectionDesc": "Bilgisayarınızda kurulu olan 'dv' CLI'ı kullanır",
+      "cliLabel": "CLI durumu",
+      "cliChecking": "'dv' kontrol ediliyor...",
+      "cliInstalled": "Kurulu",
+      "cliMissing": "Bulunamadı",
+      "recheck": "Tekrar dene",
+      "install": "İndir",
+      "showDetails": "Detaylar",
+      "hideDetails": "Gizle",
+      "errorLabel": "Hata",
+      "searchedLabel": "'dv' arandı"
     },
     "colors": {
       "blue": "Mavi",
@@ -136,6 +152,27 @@
     "error": "Git geçmişi yüklenemedi.",
     "notRepo": "Bu proje geçerli bir Git deposu değil.",
     "current": "Mevcut"
+  },
+  "diversion": {
+    "title": "Diversion Geçmişi",
+    "loading": "Commitler yükleniyor...",
+    "cliMissingTitle": "Diversion CLI bulunamadı",
+    "cliMissingDesc": "diversion.dev sitesinden 'dv' aracını kurun ve PATH'e ekli olduğundan emin olun. Sonra buraya dönüp yenileyin.",
+    "cliDownload": "İndirme sayfasını aç",
+    "notRepo": "Bu klasör bir Diversion workspace'i değil.",
+    "notRepoHint": "Proje klasöründe önce 'dv clone <repo>' veya 'dv init' çalıştırın.",
+    "loadFailed": "dv komutu başarısız: {{error}}",
+    "noCommits": "Henüz commit yok.",
+    "noMessage": "(mesaj yok)",
+    "showRaw": "Ham 'dv log' göster",
+    "hideRaw": "Ham çıktıyı gizle",
+    "statusHeader": "Workspace durumu",
+    "statusNew": "Yeni",
+    "statusModified": "Değişen",
+    "statusDeleted": "Silinen",
+    "branchLabel": "Branch",
+    "refresh": "Yenile",
+    "menuItem": "Diversion Geçmişi"
   },
   "contextMenu": {
     "launch": "Projeyi Başlat",

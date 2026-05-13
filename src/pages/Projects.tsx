@@ -16,11 +16,12 @@ import { useProjects, useFavorites, useTags } from '../hooks/useProjects';
 interface ProjectsPageProps {
     onOpenGit?: (project: Project) => void;
     onOpenConfig?: (project: Project) => void;
+    onOpenDiversion?: (project: Project) => void;
 }
 
 type SortMode = 'date' | 'name' | 'engine';
 
-export const ProjectsPage: React.FC<ProjectsPageProps> = ({ onOpenGit, onOpenConfig }) => {
+export const ProjectsPage: React.FC<ProjectsPageProps> = ({ onOpenGit, onOpenConfig, onOpenDiversion }) => {
     const { t } = useTranslation();
     const { reduceAnimations } = useAppearance();
 
@@ -38,6 +39,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({ onOpenGit, onOpenCon
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isDragOverModal, setIsDragOverModal] = useState(false);
     const [showGit] = useState(() => localStorage.getItem('showGitIntegration') !== 'false');
+    const [showDiversion] = useState(() => localStorage.getItem('showDiversionIntegration') === 'true');
 
     const [viewMode, setViewMode] = useState<'grid' | 'list'>(() =>
         (localStorage.getItem('projectViewMode') as 'grid' | 'list') || 'grid'
@@ -684,6 +686,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({ onOpenGit, onOpenCon
                         cardSize={cardSize}
                         reduceAnimations={reduceAnimations}
                         showGit={showGit}
+                        showDiversion={showDiversion}
                         isFavorite={favorites.includes(project.path)}
                         projectSize={projectSizes[project.path] || 0}
                         tags={allTags[project.path] || []}
@@ -691,6 +694,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({ onOpenGit, onOpenCon
                         onToggleFavorite={toggleFavorite}
                         onEdit={handleEditClick}
                         onOpenGit={onOpenGit}
+                        onOpenDiversion={onOpenDiversion}
                         onLaunch={handleLaunch}
                     />
                 ))}

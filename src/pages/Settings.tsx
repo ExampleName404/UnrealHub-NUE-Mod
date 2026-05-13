@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppearance } from '../context/AppearanceContext';
-import { Folder, Trash2, Plus, Play, FolderOpen, FileText, Eraser, Copy, Settings as SettingsIcon, Tag, StickyNote, Palette, Sparkles, ChevronRight, FolderX, RefreshCw, Archive, Wand2 } from 'lucide-react';
+import { Folder, Trash2, Plus, Play, FolderOpen, FileText, Eraser, Copy, Settings as SettingsIcon, Tag, StickyNote, Palette, Sparkles, ChevronRight, FolderX, RefreshCw, Archive, Wand2, Plug2 } from 'lucide-react';
 
 interface ConfigPaths {
     enginePaths: string[];
@@ -122,6 +122,14 @@ export const SettingsPage: React.FC = () => {
     const [appVersion, setAppVersion] = useState<string>('');
     const [epicAuth, setEpicAuth] = useState<{ loggedIn: boolean; displayName?: string; accountId?: string }>({ loggedIn: false });
     const [epicAuthLoading, setEpicAuthLoading] = useState(false);
+    const [diversionCli, setDiversionCli] = useState<{
+        available: boolean;
+        version?: string;
+        error?: string;
+        path?: string;
+        searchedCandidates?: string[];
+    } | null>(null);
+    const [diversionDetailsOpen, setDiversionDetailsOpen] = useState(false);
 
     const loadPaths = async () => {
         try {
@@ -146,6 +154,17 @@ export const SettingsPage: React.FC = () => {
         }
     };
 
+    const refreshDiversionCli = async () => {
+        try {
+            if (!window.unreal?.diversionCheckCli) return;
+            const res = await window.unreal.diversionCheckCli();
+            setDiversionCli(res);
+        } catch (e) {
+            console.error('Failed to check dv CLI', e);
+            setDiversionCli({ available: false, error: 'check_failed' });
+        }
+    };
+
     useEffect(() => {
         loadPaths();
         const storedConfig = localStorage.getItem('contextMenuConfig');
@@ -158,6 +177,7 @@ export const SettingsPage: React.FC = () => {
         }
 
         loadEpicAuthStatus();
+        refreshDiversionCli();
     }, []);
 
     const handleAddEnginePath = async () => {
@@ -402,7 +422,80 @@ export const SettingsPage: React.FC = () => {
                     </SettingRow>
                 </SectionCard>
 
-
+                <SectionCard icon={Plug2} title={t('settings.diversion.sectionTitle')} description={t('settings.diversion.sectionDesc')}>
+                    <SettingRow
+                        label={t('settings.diversion.cliLabel')}
+                        description={
+                            diversionCli === null
+                                ? t('settings.diversion.cliChecking')
+                                : diversionCli.available
+                                    ? (diversionCli.version || t('settings.diversion.cliInstalled'))
+                                    : t('settings.diversion.cliMissing')
+                        }
+                    >
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <div className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                                diversionCli?.available
+                                    ? 'bg-green-500/15 text-green-400'
+                                    : 'bg-slate-800 text-slate-400'
+                            }`}>
+                                {diversionCli === null
+                                    ? '...'
+                                    : diversionCli.available
+                                        ? t('settings.diversion.cliInstalled')
+                                        : t('settings.diversion.cliMissing')}
+                            </div>
+                            <button
+                                onClick={refreshDiversionCli}
+                                className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors"
+                            >
+                                {t('settings.diversion.recheck')}
+                            </button>
+                            {!diversionCli?.available && (
+                                <>
+                                    <button
+                                        onClick={() => setDiversionDetailsOpen(s => !s)}
+                                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition-colors"
+                                    >
+                                        {diversionDetailsOpen ? t('settings.diversion.hideDetails') : t('settings.diversion.showDetails')}
+                                    </button>
+                                    <a
+                                        href="https://diversion.dev/downloads"
+                                        target="_blank"
+                                        rel="noreferrer noopener"
+                                        className="px-3 py-1.5 bg-[var(--accent-color)] hover:opacity-90 text-white rounded-lg text-sm transition-colors"
+                                    >
+                                        {t('settings.diversion.install')}
+                                    </a>
+                                </>
+                            )}
+                        </div>
+                    </SettingRow>
+                    {diversionCli && !diversionCli.available && diversionDetailsOpen && (
+                        <div className="px-6 py-4 bg-slate-950/30 border-t border-white/[0.04]">
+                            {diversionCli.error && (
+                                <div className="mb-3">
+                                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                                        {t('settings.diversion.errorLabel')}
+                                    </div>
+                                    <pre className="text-[11px] text-red-300 font-mono whitespace-pre-wrap bg-slate-900/60 border border-red-500/10 rounded-lg p-3 max-h-[120px] overflow-auto">
+                                        {diversionCli.error}
+                                    </pre>
+                                </div>
+                            )}
+                            {diversionCli.searchedCandidates && diversionCli.searchedCandidates.length > 0 && (
+                                <div>
+                                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                                        {t('settings.diversion.searchedLabel')}
+                                    </div>
+                                    <pre className="text-[11px] text-slate-400 font-mono whitespace-pre-wrap bg-slate-900/60 border border-white/[0.04] rounded-lg p-3 max-h-[160px] overflow-auto">
+                                        {diversionCli.searchedCandidates.join('\n')}
+                                    </pre>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </SectionCard>
 
                 <SectionCard icon={RefreshCw} title={t('settings.updates')}>
                     <div className="p-6 flex flex-col items-center">
@@ -471,6 +564,16 @@ export const SettingsPage: React.FC = () => {
                             checked={localStorage.getItem('showGitIntegration') !== 'false'}
                             onChange={(val) => {
                                 localStorage.setItem('showGitIntegration', val.toString());
+                                window.dispatchEvent(new Event('storage'));
+                                window.location.reload();
+                            }}
+                        />
+                    </SettingRow>
+                    <SettingRow label={t('settings.diversionIntegration')} description={t('settings.diversionIntegrationDesc')}>
+                        <Toggle
+                            checked={localStorage.getItem('showDiversionIntegration') === 'true'}
+                            onChange={(val) => {
+                                localStorage.setItem('showDiversionIntegration', val.toString());
                                 window.dispatchEvent(new Event('storage'));
                                 window.location.reload();
                             }}

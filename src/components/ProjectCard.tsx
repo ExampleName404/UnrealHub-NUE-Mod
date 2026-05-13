@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Image as ImageIcon, GitBranch, Pencil, Star, HardDrive } from 'lucide-react';
+import { Play, Image as ImageIcon, GitBranch, Pencil, Star, HardDrive, Plug2 } from 'lucide-react';
 import { Project } from '../types';
 import { getTagColor } from '../utils/tagUtils';
 
@@ -17,6 +17,7 @@ interface ProjectCardProps {
     cardSize: 'small' | 'medium' | 'large';
     reduceAnimations: boolean;
     showGit: boolean;
+    showDiversion?: boolean;
     isFavorite: boolean;
     projectSize: number;
     tags: string[];
@@ -24,6 +25,7 @@ interface ProjectCardProps {
     onToggleFavorite: (path: string, e?: React.MouseEvent) => void;
     onEdit: (project: Project, e?: React.MouseEvent) => void;
     onOpenGit?: (project: Project) => void;
+    onOpenDiversion?: (project: Project) => void;
     onLaunch: (path: string, args?: string) => void;
 }
 
@@ -33,6 +35,7 @@ export const ProjectCard = React.memo<ProjectCardProps>(({
     cardSize,
     reduceAnimations,
     showGit,
+    showDiversion,
     isFavorite,
     projectSize,
     tags,
@@ -40,6 +43,7 @@ export const ProjectCard = React.memo<ProjectCardProps>(({
     onToggleFavorite,
     onEdit,
     onOpenGit,
+    onOpenDiversion,
     onLaunch
 }) => {
     const { t } = useTranslation();
@@ -129,6 +133,15 @@ export const ProjectCard = React.memo<ProjectCardProps>(({
                             <GitBranch size={16} />
                         </button>
                     )}
+                    {showDiversion && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onOpenDiversion?.(project); }}
+                            className="p-2 rounded-full text-slate-500 hover:text-white hover:bg-[var(--accent-color)] transition-colors"
+                            title={t('diversion.menuItem')}
+                        >
+                            <Plug2 size={16} />
+                        </button>
+                    )}
                     <button
                         onClick={() => onLaunch(project.path)}
                         className="p-2 ml-2 rounded-xl bg-[var(--accent-color)] text-white hover:opacity-80 transition-opacity"
@@ -197,6 +210,15 @@ export const ProjectCard = React.memo<ProjectCardProps>(({
                         title={t('projects.gitHistory')}
                     >
                         <GitBranch size={16} />
+                    </button>
+                )}
+                {showDiversion && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onOpenDiversion?.(project); }}
+                        className="p-2.5 rounded-full bg-slate-950/60 backdrop-blur-md text-slate-200 hover:text-white hover:bg-[var(--accent-color)] border border-white/10 transition-colors shadow-lg"
+                        title={t('diversion.menuItem')}
+                    >
+                        <Plug2 size={16} />
                     </button>
                 )}
             </div>

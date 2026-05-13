@@ -117,8 +117,48 @@ declare global {
             epicHasClientSecret: () => Promise<boolean>;
             epicStoreClientSecret: (secret: string) => Promise<boolean>;
             epicClearClientSecret: () => Promise<boolean>;
+
+            // Diversion (dv CLI integration)
+            diversionCheckCli: () => Promise<{
+                available: boolean;
+                version?: string;
+                error?: string;
+                path?: string;
+                searchedPath?: string;
+                searchedCandidates?: string[];
+            }>;
+            diversionCheckRepo: (projectPath: string) => Promise<boolean>;
+            diversionGetStatus: (projectPath: string) => Promise<{
+                error: string | null;
+                counts: DiversionStatusCounts | null;
+                raw: string;
+            }>;
+            diversionGetHistory: (projectPath: string, limit?: number) => Promise<{
+                error: string | null;
+                commits: DiversionCommit[];
+                raw: string;
+            }>;
+            diversionGetBranches: (projectPath: string) => Promise<{
+                error: string | null;
+                branches: string[];
+                current: string;
+            }>;
         };
     }
+}
+
+export interface DiversionStatusCounts {
+    new: number;
+    modified: number;
+    deleted: number;
+}
+
+export interface DiversionCommit {
+    id?: string;
+    message?: string;
+    author?: string;
+    date?: string;
+    branch?: string;
 }
 
 export interface EpicLibraryItem {

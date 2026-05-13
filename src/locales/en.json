@@ -60,6 +60,8 @@
     "extraSettings": "Extra Settings",
     "gitIntegration": "Git Integration",
     "gitIntegrationDesc": "Shows Git history button on project cards. (Git must be installed)",
+    "diversionIntegration": "Diversion Integration",
+    "diversionIntegrationDesc": "Shows Diversion history button on linked project cards. Requires an API token.",
     "appearance": "Appearance",
     "language": "Language",
     "accentColor": "Accent Color",
@@ -83,6 +85,20 @@
       "modalSave": "Save",
       "storeFailed": "Failed to store secret",
       "storeError": "Error saving secret"
+    },
+    "diversion": {
+      "sectionTitle": "Diversion VCS",
+      "sectionDesc": "Uses the local 'dv' CLI installed on your machine",
+      "cliLabel": "CLI status",
+      "cliChecking": "Checking 'dv'...",
+      "cliInstalled": "Installed",
+      "cliMissing": "Not found",
+      "recheck": "Re-check",
+      "install": "Install",
+      "showDetails": "Details",
+      "hideDetails": "Hide details",
+      "errorLabel": "Error",
+      "searchedLabel": "Searched for 'dv' in"
     },
     "colors": {
       "blue": "Blue",
@@ -136,6 +152,27 @@
     "error": "Failed to load Git history.",
     "notRepo": "This project is not a valid Git repository.",
     "current": "Current"
+  },
+  "diversion": {
+    "title": "Diversion History",
+    "loading": "Loading commits...",
+    "cliMissingTitle": "Diversion CLI not found",
+    "cliMissingDesc": "Install the 'dv' command-line tool from diversion.dev and make sure it is on your PATH. Then return here and refresh.",
+    "cliDownload": "Open download page",
+    "notRepo": "This folder is not a Diversion workspace.",
+    "notRepoHint": "Run 'dv clone <repo>' or 'dv init' in the project directory first.",
+    "loadFailed": "dv command failed: {{error}}",
+    "noCommits": "No commits yet.",
+    "noMessage": "(no message)",
+    "showRaw": "Show raw 'dv log'",
+    "hideRaw": "Hide raw output",
+    "statusHeader": "Workspace status",
+    "statusNew": "New",
+    "statusModified": "Modified",
+    "statusDeleted": "Deleted",
+    "branchLabel": "Branch",
+    "refresh": "Refresh",
+    "menuItem": "Diversion History"
   },
   "contextMenu": {
     "launch": "Launch Project",

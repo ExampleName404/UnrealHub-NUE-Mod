@@ -18,6 +18,7 @@ import { registerConfigHandlers } from './ipc/config';
 import { registerWindowHandlers } from './ipc/window';
 import { registerMarketplaceHandlers } from './ipc/marketplace';
 import { registerEpicAuthHandlers } from './ipc/epic-auth';
+import { registerDiversionHandlers } from './ipc/diversion';
 
 let win: BrowserWindow | null;
 
@@ -87,6 +88,7 @@ app.whenReady().then(() => {
   registerWindowHandlers(() => win);
   registerMarketplaceHandlers();
   registerEpicAuthHandlers();
+  registerDiversionHandlers();
 
   createWindow();
 });

@@ -91,4 +91,12 @@ contextBridge.exposeInMainWorld('unreal', {
 
   // App info
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+
+  // Diversion (dv CLI integration)
+  diversionCheckCli: () => ipcRenderer.invoke('diversion-check-cli'),
+  diversionCheckRepo: (projectPath: string) => ipcRenderer.invoke('diversion-check-repo', projectPath),
+  diversionGetStatus: (projectPath: string) => ipcRenderer.invoke('diversion-get-status', projectPath),
+  diversionGetHistory: (projectPath: string, limit?: number) =>
+    ipcRenderer.invoke('diversion-get-history', projectPath, limit),
+  diversionGetBranches: (projectPath: string) => ipcRenderer.invoke('diversion-get-branches', projectPath),
 })
