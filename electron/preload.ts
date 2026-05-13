@@ -19,6 +19,8 @@ contextBridge.exposeInMainWorld('unreal', {
   addEnginePath: () => ipcRenderer.invoke('add-engine-path'),
   getConfigPaths: () => ipcRenderer.invoke('get-config-paths'),
   addProjectPath: () => ipcRenderer.invoke('add-project-path'),
+  autoDetectEnginePaths: () => ipcRenderer.invoke('auto-detect-engine-paths'),
+  autoDetectProjectPaths: () => ipcRenderer.invoke('auto-detect-project-paths'),
   removePath: (type: 'engine' | 'project', path: string) => ipcRenderer.invoke('remove-path', type, path),
   launchEngine: (path: string) => ipcRenderer.invoke('launch-engine', path),
   getEnginePlugins: (path: string) => ipcRenderer.invoke('get-engine-plugins', path),

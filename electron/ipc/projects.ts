@@ -2,12 +2,26 @@ import { ipcMain, dialog, shell } from 'electron';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import {
     Project, loadConfig, saveConfig,
     STORE_PATH, EXCLUDED_PATH, KANBAN_PATH,
     readJsonFile, writeJsonFile
 } from '../services/configStore';
 import { scanProjects, getProjectSizeCached, invalidateProjectSizeCache } from '../services/scanner';
+
+// Default locations where Unreal Editor saves user projects.
+function getStandardProjectSearchRoots(): string[] {
+    const home = os.homedir();
+    const roots: string[] = [
+        path.join(home, 'Documents', 'Unreal Projects'),
+        path.join(home, 'OneDrive', 'Documents', 'Unreal Projects'),
+    ];
+    if (process.platform === 'win32') {
+        roots.push(path.join(home, 'Documents', 'UnrealProjects'));
+    }
+    return roots;
+}
 
 function parseLaunchArgs(args: string): string[] {
     const result: string[] = [];
@@ -161,6 +175,20 @@ export function registerProjectHandlers() {
             return true;
         }
         return false;
+    });
+
+    ipcMain.handle('auto-detect-project-paths', async () => {
+        const roots = getStandardProjectSearchRoots();
+        const config = await loadConfig();
+        const existing = new Set(config.projectPaths);
+
+        const found = roots.filter(p => existsSync(p));
+        const added = found.filter(p => !existing.has(p));
+        if (added.length > 0) {
+            config.projectPaths.push(...added);
+            await saveConfig(config);
+        }
+        return { found, added };
     });
 
     ipcMain.handle('add-project-file', async () => {

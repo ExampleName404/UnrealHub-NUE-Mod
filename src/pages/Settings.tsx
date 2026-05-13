@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppearance } from '../context/AppearanceContext';
-import { Folder, Trash2, Plus, Play, FolderOpen, FileText, Eraser, Copy, Settings as SettingsIcon, Tag, StickyNote, Palette, Sparkles, ChevronRight, FolderX, RefreshCw, Archive } from 'lucide-react';
+import { Folder, Trash2, Plus, Play, FolderOpen, FileText, Eraser, Copy, Settings as SettingsIcon, Tag, StickyNote, Palette, Sparkles, ChevronRight, FolderX, RefreshCw, Archive, Wand2 } from 'lucide-react';
 
 interface ConfigPaths {
     enginePaths: string[];
@@ -170,6 +170,22 @@ export const SettingsPage: React.FC = () => {
         if (added) await loadPaths();
     };
 
+    const handleAutoDetect = async (type: 'engine' | 'project') => {
+        const fn = type === 'engine'
+            ? window.unreal.autoDetectEnginePaths
+            : window.unreal.autoDetectProjectPaths;
+        const result = await fn();
+        if (result.added.length > 0) await loadPaths();
+
+        if (result.added.length > 0) {
+            alert(t('settings.autoDetectAdded', { count: result.added.length, defaultValue: `Added ${result.added.length} path(s).` }));
+        } else if (result.found.length > 0) {
+            alert(t('settings.autoDetectAllKnown', 'All detected paths are already added.'));
+        } else {
+            alert(t('settings.autoDetectNothing', 'No standard paths found on this machine.'));
+        }
+    };
+
     const handleRemovePath = async (type: 'engine' | 'project', path: string) => {
         await window.unreal.removePath(type, path);
         await loadPaths();
@@ -254,7 +270,7 @@ export const SettingsPage: React.FC = () => {
                     </div>
                 ))
             )}
-            <div className="px-6 py-3 border-t border-white/[0.03]">
+            <div className="px-6 py-3 border-t border-white/[0.03] flex flex-wrap items-center gap-x-5 gap-y-2">
                 <button
                     onClick={onAdd}
                     className="flex items-center gap-2 text-xs font-semibold text-[var(--accent-color)] hover:text-white transition-colors group"
@@ -262,7 +278,16 @@ export const SettingsPage: React.FC = () => {
                     <Plus size={14} className="group-hover:scale-110 transition-transform" />
                     {t('settings.addFolder')}
                 </button>
-                <p className="text-[10px] text-slate-600 mt-1.5">
+                <button
+                    onClick={() => handleAutoDetect(type)}
+                    className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors group"
+                >
+                    <Wand2 size={14} className="group-hover:scale-110 transition-transform" />
+                    {type === 'engine'
+                        ? t('settings.autoDetectEngine', 'Find Epic Games / UE')
+                        : t('settings.autoDetectProject', 'Find Unreal Projects')}
+                </button>
+                <p className="basis-full text-[10px] text-slate-600 mt-0.5">
                     {type === 'engine' ? t('settings.engineDesc') : t('settings.projectDesc')}
                 </p>
             </div>
@@ -280,15 +305,18 @@ export const SettingsPage: React.FC = () => {
             <div className="space-y-6">
                 <SectionCard icon={Palette} title={t('settings.appearance')}>
                     <SettingRow label={t('settings.language')} description={t('settings.selectLanguage')}>
-                        <SegmentPicker
-                            options={[
-                                { key: 'tr', label: 'Türkçe' },
-                                { key: 'en', label: 'English' },
-                                { key: 'ru', label: 'Русский' },
-                            ]}
-                            value={currentLanguage}
-                            onChange={changeLanguage}
-                        />
+                        <div className="relative">
+                            <select
+                                value={currentLanguage}
+                                onChange={(e) => changeLanguage(e.target.value)}
+                                className="appearance-none bg-slate-800/60 border border-white/[0.06] hover:border-white/[0.12] focus:border-[var(--accent-color)] focus:outline-none rounded-xl pl-4 pr-9 py-2 text-sm font-medium text-slate-200 cursor-pointer transition-colors min-w-[160px]"
+                            >
+                                <option value="en">🇬🇧  English</option>
+                                <option value="ru">🇷🇺  Русский</option>
+                                <option value="tr">🇹🇷  Türkçe</option>
+                            </select>
+                            <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
+                        </div>
                     </SettingRow>
 
                     <SettingRow label={t('settings.accentColor')}>

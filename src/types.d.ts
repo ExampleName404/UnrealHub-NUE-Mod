@@ -51,6 +51,8 @@ declare global {
             addEnginePath: () => Promise<boolean>;
             getConfigPaths: () => Promise<{ enginePaths: string[], projectPaths: string[] }>;
             addProjectPath: () => Promise<boolean>;
+            autoDetectEnginePaths: () => Promise<{ found: string[]; added: string[] }>;
+            autoDetectProjectPaths: () => Promise<{ found: string[]; added: string[] }>;
             removePath: (type: 'engine' | 'project', path: string) => Promise<boolean>;
             launchEngine: (path: string) => Promise<boolean>;
             getEnginePlugins: (path: string) => Promise<string[]>;
