@@ -362,6 +362,25 @@ export function registerProjectHandlers() {
         await invalidateProjectSizeCache(projectPath);
     });
 
+    ipcMain.handle('clean-project-binaries', async (_, projectPath: string) => {
+        const projectDir = path.dirname(projectPath);
+        const binariesPath = path.join(projectDir, 'Binaries');
+        if (!existsSync(binariesPath)) {
+            return { success: true, removed: false };
+        }
+        try {
+            const entries = await fs.readdir(binariesPath, { withFileTypes: true });
+            await Promise.all(entries.map(async (entry) => {
+                const target = path.join(binariesPath, entry.name);
+                await fs.rm(target, { recursive: true, force: true });
+            }));
+            await invalidateProjectSizeCache(projectPath);
+            return { success: true, removed: true };
+        } catch (e: any) {
+            return { success: false, error: e?.message || 'Unknown error' };
+        }
+    });
+
 
 
     ipcMain.handle('get-project-stats', async (_, projectPath: string) => {

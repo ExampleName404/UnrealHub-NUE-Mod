@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FolderOpen, FileText, Trash2, Copy, Settings, Tag, Play, Eraser, StickyNote, FolderX, Archive } from 'lucide-react';
+import { FolderOpen, FileText, Trash2, Copy, Settings, Tag, Play, Eraser, StickyNote, FolderX, Archive, Binary } from 'lucide-react';
 
 interface ContextMenuProps {
     x: number;
@@ -11,6 +11,7 @@ interface ContextMenuProps {
     onShowInExplorer: () => void;
     onShowLogs: () => void;
     onCleanCache: () => void;
+    onCleanBinaries: () => void;
     onClone: () => void;
     onEditConfig: () => void;
     onManageTags: () => void;
@@ -26,7 +27,7 @@ interface ContextMenuProps {
 export const ContextMenu: React.FC<ContextMenuProps> = ({
     x, y, projectName, onClose,
     onLaunch, onShowInExplorer, onShowLogs,
-    onCleanCache, onClone, onEditConfig, onManageTags, onStats, onNotes, onRemove, onSmartBackup, onGitAutoBackup, onDeleteProject, onKanban
+    onCleanCache, onCleanBinaries, onClone, onEditConfig, onManageTags, onStats, onNotes, onRemove, onSmartBackup, onGitAutoBackup, onDeleteProject, onKanban
 }) => {
     const { t } = useTranslation();
     const menuRef = useRef<HTMLDivElement>(null);
@@ -40,7 +41,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             } else {
                 setMenuConfig({
                     launch: true, showInExplorer: true, showLogs: true,
-                    cleanCache: true, clone: true,
+                    cleanCache: true, cleanBinaries: true, clone: true,
                     editConfig: true, manageTags: true, stats: true, notes: true, kanban: true, smartBackup: true, gitAutoBackup: true, removeProject: true, deleteProject: true
                 });
             }
@@ -161,6 +162,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                     <button onClick={onCleanCache} className="w-full text-left px-3 py-2 hover:bg-slate-800/80 rounded-md flex items-center gap-3 transition-all group">
                         <Eraser size={15} className="text-yellow-400 group-hover:scale-110 transition-transform" />
                         <span className="font-medium">{t('contextMenu.cleanCache')}</span>
+                    </button>
+                )}
+
+                {isVisible('cleanBinaries') && (
+                    <button onClick={onCleanBinaries} className="w-full text-left px-3 py-2 hover:bg-slate-800/80 rounded-md flex items-center gap-3 transition-all group">
+                        <Binary size={15} className="text-rose-400 group-hover:scale-110 transition-transform" />
+                        <span className="font-medium">{t('contextMenu.cleanBinaries')}</span>
                     </button>
                 )}
 

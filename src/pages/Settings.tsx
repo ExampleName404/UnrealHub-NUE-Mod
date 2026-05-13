@@ -13,6 +13,7 @@ interface ContextMenuConfig {
     showInExplorer: boolean;
     showLogs: boolean;
     cleanCache: boolean;
+    cleanBinaries: boolean;
     clone: boolean;
     editConfig: boolean;
     manageTags: boolean;
@@ -30,6 +31,7 @@ const defaultMenuConfig: ContextMenuConfig = {
     showInExplorer: true,
     showLogs: true,
     cleanCache: true,
+    cleanBinaries: true,
     clone: true,
     editConfig: true,
     manageTags: true,
@@ -53,6 +55,7 @@ const menuItems: { key: keyof ContextMenuConfig; icon: React.ElementType; color:
     { key: 'kanban', icon: FileText, color: 'text-purple-400' },
     { key: 'clone', icon: Copy, color: 'text-cyan-400' },
     { key: 'cleanCache', icon: Eraser, color: 'text-yellow-400' },
+    { key: 'cleanBinaries', icon: Eraser, color: 'text-rose-400' },
     { key: 'smartBackup', icon: FolderOpen, color: 'text-blue-400' },
     { key: 'gitAutoBackup', icon: Archive, color: 'text-violet-400' },
     { key: 'removeProject', icon: Trash2, color: 'text-red-400' },

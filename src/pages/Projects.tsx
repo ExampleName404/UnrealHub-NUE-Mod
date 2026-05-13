@@ -321,6 +321,38 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({ onOpenGit, onOpenCon
                             }
                         });
                     }}
+                    onCleanBinaries={() => {
+                        const p = ctxMenu.project;
+                        showDialog({
+                            type: 'confirm',
+                            variant: 'destructive',
+                            title: t('dialogs.cleanBinariesTitle'),
+                            message: t('dialogs.cleanBinariesMessage'),
+                            confirmText: t('dialogs.clean'),
+                            onConfirm: () => {
+                                handleAction(async () => {
+                                    const res = await window.unreal.cleanProjectBinaries(p.path);
+                                    if (res.success) {
+                                        showDialog({
+                                            type: 'alert',
+                                            variant: 'success',
+                                            title: t('dialogs.success'),
+                                            message: res.removed ? t('dialogs.cleanBinariesSuccess') : t('dialogs.cleanBinariesNothing'),
+                                            onConfirm: () => { }
+                                        });
+                                    } else {
+                                        showDialog({
+                                            type: 'alert',
+                                            variant: 'destructive',
+                                            title: t('dialogs.error'),
+                                            message: t('dialogs.cleanBinariesError', { error: res.error || '' }),
+                                            onConfirm: () => { }
+                                        });
+                                    }
+                                });
+                            }
+                        });
+                    }}
                     onSmartBackup={() => {
                         const p = ctxMenu.project;
                         closeContextMenu();
