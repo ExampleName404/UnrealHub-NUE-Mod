@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, Package, FolderOpen, ChevronDown, Box, Grid3X3, List, RefreshCw, LogIn, LogOut, Library, User, Globe, X, Download, Plus } from 'lucide-react';
 import { useAppearance } from '../context/AppearanceContext';
-import { VaultAssetInfo, EpicLibraryItem } from '../types';
+import { DownloadProgressPayload, VaultAssetInfo, EpicLibraryItem } from '../types';
 
 type Tab = 'vault' | 'library';
 type LibrarySort = 'az' | 'za' | 'newest' | 'developer';
@@ -60,12 +60,6 @@ export const MarketplacePage: React.FC = () => {
         checkAuth();
     }, []);
 
-    // Load library: cache-first, then background refresh
-    useEffect(() => {
-        if (activeTab !== 'library' || !epicLoggedIn) return;
-        loadLibraryCacheFirst();
-    }, [activeTab, epicLoggedIn]);
-
     // Filtered vault
     const filteredVault = useMemo(() => {
         if (!vaultSearch) return vaultAssets;
@@ -107,7 +101,23 @@ export const MarketplacePage: React.FC = () => {
         setLibraryItems([]);
     };
 
-    const loadLibraryCacheFirst = async () => {
+    const loadLibrary = useCallback(async () => {
+        setLibraryLoading(true);
+        try {
+            const result = await window.unreal.epicGetLibrary();
+            if (!result.error) {
+                setLibraryItems(result.items);
+            } else if (result.error === 'not_logged_in') {
+                setEpicLoggedIn(false);
+            }
+        } catch (e) {
+            console.error('Failed to load library:', e);
+        } finally {
+            setLibraryLoading(false);
+        }
+    }, []);
+
+    const loadLibraryCacheFirst = useCallback(async () => {
         // 1. Try loading from cache (instant)
         try {
             const cached = await window.unreal.epicGetLibraryCached();
@@ -125,24 +135,14 @@ export const MarketplacePage: React.FC = () => {
         } catch { /* no cache */ }
 
         // 2. No cache — full load with spinner
-        loadLibrary();
-    };
+        await loadLibrary();
+    }, [loadLibrary]);
 
-    const loadLibrary = async () => {
-        setLibraryLoading(true);
-        try {
-            const result = await window.unreal.epicGetLibrary();
-            if (!result.error) {
-                setLibraryItems(result.items);
-            } else if (result.error === 'not_logged_in') {
-                setEpicLoggedIn(false);
-            }
-        } catch (e) {
-            console.error('Failed to load library:', e);
-        } finally {
-            setLibraryLoading(false);
-        }
-    };
+    // Load library: cache-first, then background refresh
+    useEffect(() => {
+        if (activeTab !== 'library' || !epicLoggedIn) return;
+        loadLibraryCacheFirst();
+    }, [activeTab, epicLoggedIn, loadLibraryCacheFirst]);
 
     // Filtered + sorted library
     const filteredLibrary = useMemo(() => {
@@ -187,7 +187,7 @@ export const MarketplacePage: React.FC = () => {
         setInstallModalOpen(true);
     };
 
-    const fetchVaultAssets = async () => {
+    const fetchVaultAssets = useCallback(async () => {
         setVaultLoading(true);
         try {
             const assets = await window.unreal.getVaultAssets();
@@ -197,11 +197,11 @@ export const MarketplacePage: React.FC = () => {
         } finally {
             setVaultLoading(false);
         }
-    };
+    }, []);
 
     // Real Download Handler
     useEffect(() => {
-        window.unreal.onDownloadAssetProgress((payload) => {
+        const unsubscribe = window.unreal.onDownloadAssetProgress((payload: DownloadProgressPayload) => {
             if (payload.status === 'completed') {
                 setIsDownloading(false);
                 setDownloadingAsset(null);
@@ -220,7 +220,8 @@ export const MarketplacePage: React.FC = () => {
                 setDownloadProgress(payload.percent || 0);
             }
         });
-    }, []);
+        return unsubscribe;
+    }, [fetchVaultAssets]);
 
     const startAssetDownload = async () => {
         setInstallModalOpen(false);

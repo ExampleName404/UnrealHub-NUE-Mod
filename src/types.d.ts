@@ -20,6 +20,24 @@ export interface Engine {
     thumbnail?: string;
 }
 
+export interface EngineConfig {
+    rayTracing?: boolean;
+    lumen?: boolean;
+    nanite?: boolean;
+    virtualShadowMaps?: boolean;
+    antiAliasing?: number;
+    vsync?: boolean;
+    rhi?: string;
+}
+
+export interface DownloadProgressPayload {
+    status?: string;
+    error?: string;
+    percent?: number;
+    downloadedMB?: number;
+    totalMB?: number;
+}
+
 declare global {
     interface Window {
         unreal: {
@@ -50,11 +68,11 @@ declare global {
 
             getProjectStats: (path: string) => Promise<{ blueprints: number, assets: number, maps: number, cpp: number, h: number }>;
             cloneProject: (path: string, newName: string) => Promise<void>;
-            readIniFile: (path: string) => Promise<Record<string, any>>;
+            readIniFile: (path: string) => Promise<EngineConfig>;
             deleteProject: (path: string) => Promise<boolean>;
             readUprojectPlugins: (path: string) => Promise<{ Name: string, Enabled: boolean }[]>;
             writeUprojectPlugins: (path: string, plugins: { Name: string, Enabled: boolean }[]) => Promise<boolean>;
-            writeIniFile: (path: string, data: Record<string, any>) => Promise<void>;
+            writeIniFile: (path: string, data: EngineConfig) => Promise<void>;
             getProjectTags: () => Promise<Record<string, string[]>>;
             saveProjectTags: (tags: Record<string, string[]>) => Promise<void>;
             getFavorites: () => Promise<string[]>;
@@ -86,12 +104,12 @@ declare global {
             epicLogout: () => Promise<void>;
             epicGetLibrary: () => Promise<{ error: string | null; items: EpicLibraryItem[] }>;
             epicGetLibraryCached: () => Promise<{ error: string | null; items: EpicLibraryItem[]; cached: boolean; timestamp?: number }>;
-            epicGetCatalogInfo: (namespace: string, catalogItemId: string) => Promise<any>;
-            epicGetAssetManifest: (namespace: string, catalogItemId: string, appName: string) => Promise<any>;
+            epicGetCatalogInfo: (namespace: string, catalogItemId: string) => Promise<unknown>;
+            epicGetAssetManifest: (namespace: string, catalogItemId: string, appName: string) => Promise<unknown>;
             epicSelectVaultDir: () => Promise<string | null>;
             epicCancelDownload: () => Promise<boolean>;
-            epicDownloadAsset: (namespace: string, catalogItemId: string, appName: string, title: string) => Promise<any>;
-            onDownloadAssetProgress: (callback: (payload: any) => void) => void;
+            epicDownloadAsset: (namespace: string, catalogItemId: string, appName: string, title: string) => Promise<{ error?: string }>;
+            onDownloadAssetProgress: (callback: (payload: DownloadProgressPayload) => void) => () => void;
 
             // Epic client secret storage (keytar)
             epicHasClientSecret: () => Promise<boolean>;

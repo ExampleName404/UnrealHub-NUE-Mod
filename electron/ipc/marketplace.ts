@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron';
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 interface UpluginData {
@@ -47,6 +48,15 @@ export interface VaultAssetInfo {
     buildVersion: string;
     installPath: string;
     sizeBytes: number;
+}
+
+interface InstalledManifest {
+    installLocation: string;
+    appName: string;
+    catalogItemId: string;
+    displayName: string;
+    appVersion: string;
+    namespace: string;
 }
 
 async function scanPluginsRecursive(dirPath: string, maxDepth: number = 5): Promise<PluginInfo[]> {
@@ -118,7 +128,7 @@ async function scanVaultCache(): Promise<VaultAssetInfo[]> {
         path.join(process.env.PROGRAMDATA || 'C:\\ProgramData', 'Epic', 'EpicGamesLauncher', 'VaultCache'),
         path.join(process.env.LOCALAPPDATA || '', 'EpicGamesLauncher', 'VaultCache'),
         path.join('/Users/Shared/Epic Games/EpicGamesLauncher/VaultCache'),
-        path.join(require('os').homedir(), 'Library', 'Application Support', 'Epic', 'EpicGamesLauncher', 'VaultCache')
+        path.join(os.homedir(), 'Library', 'Application Support', 'Epic', 'EpicGamesLauncher', 'VaultCache')
     ];
 
     for (const vaultPath of possiblePaths) {
@@ -183,11 +193,11 @@ async function scanVaultCache(): Promise<VaultAssetInfo[]> {
 }
 
 // Scan for .item files from Epic's manifests directory
-async function scanInstalledManifests(): Promise<any[]> {
-    const items: any[] = [];
+async function scanInstalledManifests(): Promise<InstalledManifest[]> {
+    const items: InstalledManifest[] = [];
     const manifestsPaths = [
         path.join(process.env.PROGRAMDATA || 'C:\\ProgramData', 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests'),
-        path.join(require('os').homedir(), 'Library', 'Application Support', 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests')
+        path.join(os.homedir(), 'Library', 'Application Support', 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests')
     ];
 
     for (const manifestsPath of manifestsPaths) {
@@ -226,7 +236,7 @@ export function registerMarketplaceHandlers() {
 
     // Scan plugins in a project's Plugins directory
     ipcMain.handle('scan-project-plugins', async (_, projectPath: string) => {
-        const pluginsDir = path.join(projectPath, 'Plugins');
+        const pluginsDir = path.join(path.dirname(projectPath), 'Plugins');
         if (!existsSync(pluginsDir)) return [];
         return scanPluginsRecursive(pluginsDir, 3);
     });

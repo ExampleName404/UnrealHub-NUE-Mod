@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Settings, Disc, FileText, Puzzle, Save, Check, Plus, Trash2 } from 'lucide-react';
+import { EngineConfig } from '../types';
 
 interface ConfigEditorPageProps {
     projectPath: string;
@@ -96,7 +97,7 @@ export const ConfigEditorPage: React.FC<ConfigEditorPageProps> = ({ projectPath,
     const [saving, setSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
 
-    const [engineConfig, setEngineConfig] = useState<any>({});
+    const [engineConfig, setEngineConfig] = useState<EngineConfig>({});
 
     const [plugins, setPlugins] = useState<{ Name: string, Enabled: boolean }[]>([]);
     const [newPluginName, setNewPluginName] = useState('');
@@ -105,16 +106,6 @@ export const ConfigEditorPage: React.FC<ConfigEditorPageProps> = ({ projectPath,
     const [parsedIni, setParsedIni] = useState<IniSection[]>([]);
     const [editorMode, setEditorMode] = useState<'structured' | 'raw'>('structured');
     const [hasUnsavedRawChanges, setHasUnsavedRawChanges] = useState(false);
-
-    useEffect(() => {
-        loadInitialData();
-    }, [projectPath]);
-
-    useEffect(() => {
-        if (selectedTab !== 'visual' && selectedTab !== 'plugins') {
-            loadRawFile(selectedTab);
-        }
-    }, [selectedTab]);
 
     const confirmDiscardChanges = () => {
         if (!hasUnsavedRawChanges) return true;
@@ -127,7 +118,7 @@ export const ConfigEditorPage: React.FC<ConfigEditorPageProps> = ({ projectPath,
         setSelectedTab(tab);
     };
 
-    const loadInitialData = async () => {
+    const loadInitialData = useCallback(async () => {
         setLoading(true);
         try {
             const files = await window.unreal.getProjectConfigs(projectPath);
@@ -143,9 +134,9 @@ export const ConfigEditorPage: React.FC<ConfigEditorPageProps> = ({ projectPath,
         } finally {
             setLoading(false);
         }
-    };
+    }, [projectPath]);
 
-    const loadRawFile = async (fileName: string) => {
+    const loadRawFile = useCallback(async (fileName: string) => {
         setLoading(true);
         setHasUnsavedRawChanges(false);
         try {
@@ -157,7 +148,17 @@ export const ConfigEditorPage: React.FC<ConfigEditorPageProps> = ({ projectPath,
         } finally {
             setLoading(false);
         }
-    };
+    }, [projectPath]);
+
+    useEffect(() => {
+        loadInitialData();
+    }, [loadInitialData]);
+
+    useEffect(() => {
+        if (selectedTab !== 'visual' && selectedTab !== 'plugins') {
+            loadRawFile(selectedTab);
+        }
+    }, [loadRawFile, selectedTab]);
 
     const handleSaveVisual = async () => {
         setSaving(true);
@@ -224,11 +225,11 @@ export const ConfigEditorPage: React.FC<ConfigEditorPageProps> = ({ projectPath,
         setTimeout(() => setSaveSuccess(false), 2000);
     };
 
-    const handleVisualChange = (key: string, value: any) => {
-        setEngineConfig((prev: any) => ({ ...prev, [key]: value }));
+    const handleVisualChange = (key: keyof EngineConfig, value: EngineConfig[keyof EngineConfig]) => {
+        setEngineConfig((prev) => ({ ...prev, [key]: value }));
     };
 
-    const Toggle = ({ label, configKey }: { label: string; configKey: string }) => (
+    const Toggle = ({ label, configKey }: { label: string; configKey: keyof EngineConfig }) => (
         <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
             <span className="text-sm font-medium text-slate-200">{label}</span>
             <div

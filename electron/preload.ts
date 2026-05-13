@@ -1,8 +1,16 @@
 import { ipcRenderer, contextBridge } from 'electron'
+import type { IpcRendererEvent } from 'electron'
+import type { DownloadProgressPayload, EngineConfig, KanbanBoard, LaunchProfile, Project } from '../src/types'
+
+type ProjectDetailsUpdate = {
+  name?: string
+  thumbnail?: string
+  launchProfiles?: LaunchProfile[]
+}
 
 contextBridge.exposeInMainWorld('unreal', {
   getProjects: () => ipcRenderer.invoke('get-projects'),
-  saveProject: (project: any) => ipcRenderer.invoke('save-project', project),
+  saveProject: (project: Project) => ipcRenderer.invoke('save-project', project),
   selectProjectFile: () => ipcRenderer.invoke('select-project-file'),
   launchProject: (path: string, args?: string) => ipcRenderer.invoke('launch-project', path, args),
   showInExplorer: (path: string) => ipcRenderer.invoke('show-in-explorer', path),
@@ -14,7 +22,7 @@ contextBridge.exposeInMainWorld('unreal', {
   removePath: (type: 'engine' | 'project', path: string) => ipcRenderer.invoke('remove-path', type, path),
   launchEngine: (path: string) => ipcRenderer.invoke('launch-engine', path),
   getEnginePlugins: (path: string) => ipcRenderer.invoke('get-engine-plugins', path),
-  updateProjectDetails: (path: string, details: any) => ipcRenderer.invoke('update-project-details', path, details),
+  updateProjectDetails: (path: string, details: ProjectDetailsUpdate) => ipcRenderer.invoke('update-project-details', path, details),
   selectImage: () => ipcRenderer.invoke('select-image'),
   addProjectFile: () => ipcRenderer.invoke('add-project-file'),
   addDroppedProject: (path: string) => ipcRenderer.invoke('add-dropped-project', path),
@@ -30,9 +38,9 @@ contextBridge.exposeInMainWorld('unreal', {
   smartBackup: (path: string) => ipcRenderer.invoke('smart-backup', path),
   deleteProject: (path: string) => ipcRenderer.invoke('delete-project', path),
   readUprojectPlugins: (path: string) => ipcRenderer.invoke('read-uproject-plugins', path),
-  writeUprojectPlugins: (path: string, plugins: any[]) => ipcRenderer.invoke('write-uproject-plugins', path, plugins),
+  writeUprojectPlugins: (path: string, plugins: { Name: string, Enabled: boolean }[]) => ipcRenderer.invoke('write-uproject-plugins', path, plugins),
   readIniFile: (path: string) => ipcRenderer.invoke('read-ini-file', path),
-  writeIniFile: (path: string, data: Record<string, any>) => ipcRenderer.invoke('write-ini-file', path, data),
+  writeIniFile: (path: string, data: EngineConfig) => ipcRenderer.invoke('write-ini-file', path, data),
   getProjectTags: () => ipcRenderer.invoke('get-project-tags'),
   saveProjectTags: (tags: Record<string, string[]>) => ipcRenderer.invoke('save-project-tags', tags),
   getFavorites: () => ipcRenderer.invoke('get-favorites'),
@@ -41,7 +49,7 @@ contextBridge.exposeInMainWorld('unreal', {
   getProjectNotes: () => ipcRenderer.invoke('get-project-notes'),
   saveProjectNotes: (notes: Record<string, string>) => ipcRenderer.invoke('save-project-notes', notes),
   getProjectKanban: (path: string) => ipcRenderer.invoke('get-project-kanban', path),
-  saveProjectKanban: (path: string, board: any) => ipcRenderer.invoke('save-project-kanban', path, board),
+  saveProjectKanban: (path: string, board: KanbanBoard) => ipcRenderer.invoke('save-project-kanban', path, board),
   getProjectConfigs: (path: string) => ipcRenderer.invoke('get-project-configs', path),
   readRawIniFile: (path: string, fileName: string) => ipcRenderer.invoke('read-raw-ini-file', path, fileName),
   writeRawIniFile: (path: string, fileName: string, content: string) => ipcRenderer.invoke('write-raw-ini-file', path, fileName, content),
@@ -71,9 +79,12 @@ contextBridge.exposeInMainWorld('unreal', {
   epicClearClientSecret: () => ipcRenderer.invoke('epic-clear-client-secret'),
   epicHasClientSecret: () => ipcRenderer.invoke('epic-has-client-secret'),
   
-  onDownloadAssetProgress: (callback: (payload: any) => void) => {
-    ipcRenderer.removeAllListeners('download-asset-progress');
-    ipcRenderer.on('download-asset-progress', (_event, payload) => callback(payload));
+  onDownloadAssetProgress: (callback: (payload: DownloadProgressPayload) => void) => {
+    const listener = (_event: IpcRendererEvent, payload: DownloadProgressPayload) => callback(payload);
+    ipcRenderer.on('download-asset-progress', listener);
+    return () => {
+      ipcRenderer.removeListener('download-asset-progress', listener);
+    };
   },
 
   // App info

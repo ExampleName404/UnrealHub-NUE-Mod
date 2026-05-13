@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, GitCommit as GitIcon, AlertCircle, Monitor, Cloud, Tag, Check, Clock } from 'lucide-react';
 import { GitCommit } from '../types';
@@ -51,11 +51,7 @@ export const GitHistoryPage: React.FC<GitHistoryPageProps> = ({ projectPath, pro
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState<{ current: string; branches: string[]; remotes: string[] } | null>(null);
 
-    useEffect(() => {
-        loadHistory();
-    }, [projectPath]);
-
-    const loadHistory = async () => {
+    const loadHistory = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
@@ -80,7 +76,11 @@ export const GitHistoryPage: React.FC<GitHistoryPageProps> = ({ projectPath, pro
         } finally {
             setLoading(false);
         }
-    };
+    }, [projectPath, t]);
+
+    useEffect(() => {
+        loadHistory();
+    }, [loadHistory]);
 
     const graphData = useMemo(() => {
         const nodes: GraphNode[] = [];
