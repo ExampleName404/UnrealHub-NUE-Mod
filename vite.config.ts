@@ -12,6 +12,9 @@ export default defineConfig({
       main: {
         // Shortcut of `build.lib.entry`.
         entry: 'electron/main.ts',
+        onstart({ startup }) {
+          startup();
+        },
         vite: {
           build: {
             rollupOptions: {

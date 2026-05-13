@@ -25,9 +25,12 @@ function setVaultDir(dir: string) {
     fs.writeFileSync(configPath, JSON.stringify({ vaultDir: dir }, null, 2));
 }
 
-// Epic Games OAuth credentials (from Epic Games Launcher — same as Legendary/EAM)
-// NOTE: EPIC_CLIENT_SECRET must NOT be hardcoded. Read from keytar or environment.
+// Epic Games OAuth credentials (Epic Games Launcher's own public OAuth pair —
+// same one Legendary, Heroic, EAM and other open-source tools use).
+// These have been publicly known for years; not actually a "private" secret.
+// Override via env vars or keytar if needed (e.g. a self-issued Epic OAuth app).
 const EPIC_CLIENT_ID = process.env.EPIC_CLIENT_ID || '34a02cf8f4414e29b15921876da36f9a';
+const EPIC_DEFAULT_CLIENT_SECRET = 'daafbccc737745039dffe53d94fc76cf';
 const SERVICE_NAME = 'UnrealHub';
 const ACCOUNT_NAME = 'epic_client_secret';
 
@@ -61,10 +64,7 @@ async function clearStoredClientSecret(): Promise<boolean> {
 }
 
 async function getBasicAuth(): Promise<string> {
-    const secret = (await getStoredClientSecret()) || process.env.EPIC_CLIENT_SECRET || '';
-    if (!secret) {
-        console.warn('Warning: EPIC_CLIENT_SECRET is not set. Set process.env.EPIC_CLIENT_SECRET or store it using keytar.');
-    }
+    const secret = (await getStoredClientSecret()) || process.env.EPIC_CLIENT_SECRET || EPIC_DEFAULT_CLIENT_SECRET;
     return Buffer.from(`${EPIC_CLIENT_ID}:${secret}`).toString('base64');
 }
 
@@ -254,6 +254,9 @@ async function exchangeCode(code: string): Promise<EpicToken> {
     });
 
     if (res.status !== 200) {
+        if (res.data?.error === 'invalid_client') {
+            throw new Error('Epic client secret is invalid or missing. Update it in Settings > Epic Auth.');
+        }
         throw new Error(`OAuth failed: ${JSON.stringify(res.data)}`);
     }
 
@@ -342,6 +345,7 @@ async function startEpicLoginFlow(): Promise<EpicLoginResult> {
     activeLoginFlow = new Promise<EpicLoginResult>((resolve) => {
         let resolved = false;
         let authWindow: BrowserWindow;
+        let ignoreWindowClose = false;
 
         const finish = (result: EpicLoginResult) => {
             if (resolved) return;
@@ -352,6 +356,7 @@ async function startEpicLoginFlow(): Promise<EpicLoginResult> {
 
         const handleCode = async (code: string) => {
             if (resolved) return;
+            ignoreWindowClose = true;
             try {
                 if (!authWindow.isDestroyed()) authWindow.close();
             } catch { /* ignore */ }
@@ -456,7 +461,7 @@ async function startEpicLoginFlow(): Promise<EpicLoginResult> {
         });
 
         authWindow.on('closed', () => {
-            if (!resolved) {
+            if (!resolved && !ignoreWindowClose) {
                 finish({ token: null, error: 'Login cancelled' });
             }
         });
@@ -573,8 +578,9 @@ export function registerEpicAuthHandlers() {
     });
 
     ipcMain.handle('epic-has-client-secret', async () => {
-        const s = await getStoredClientSecret();
-        return !!s;
+        // Always returns true: the app ships with the public Epic Launcher
+        // OAuth secret as a fallback, so login works out of the box.
+        return true;
     });
 
     // Get cached library (instant, from disk)

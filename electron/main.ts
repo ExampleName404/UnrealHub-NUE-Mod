@@ -26,6 +26,11 @@ function createWindow() {
     const isWindows = process.platform === 'win32';
 
     win = new BrowserWindow({
+      width: 1400,
+      height: 900,
+      minWidth: 1024,
+      minHeight: 640,
+      center: true,
       frame: false,
       transparent: isMac ? true : false,
       backgroundColor: '#00000000',
@@ -46,10 +51,12 @@ function createWindow() {
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL);
+    win.webContents.openDevTools({ mode: 'detach' });
   } else {
     win.loadFile(path.join(RENDERER_DIST, 'index.html'));
   }
 }
+
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

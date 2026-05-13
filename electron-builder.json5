@@ -3,7 +3,7 @@
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "com.unrealhub.manager",
   "asar": true,
-  "productName": "UnrealHub by Dmitry",
+  "productName": "NUE Mod",
   "directories": {
     "output": "release/${version}"
   },
@@ -31,6 +31,7 @@
   "nsis": {
     "oneClick": false,
     "perMachine": false,
+    "include": "installer.nsh",
     "allowToChangeInstallationDirectory": false,
     "deleteAppDataOnUninstall": false
   },

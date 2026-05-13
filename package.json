@@ -12,7 +12,7 @@
   },
   "build": {
     "appId": "com.unrealhub.manager",
-    "productName": "UnrealHub by Dmitry",
+    "productName": "NUE Mod",
     "directories": {
       "output": "release/${version}"
     },
@@ -28,6 +28,7 @@
     "nsis": {
       "oneClick": false,
       "perMachine": false,
+      "include": "installer.nsh",
       "allowToChangeInstallationDirectory": false,
       "deleteAppDataOnUninstall": false
     },

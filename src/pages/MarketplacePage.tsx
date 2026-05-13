@@ -86,6 +86,8 @@ export const MarketplacePage: React.FC = () => {
             if (result.success) {
                 setEpicLoggedIn(true);
                 if (result.displayName) setEpicDisplayName(result.displayName);
+            } else if (result.error) {
+                alert(result.error);
             }
         } catch (e) {
             console.error('Epic login failed:', e);
