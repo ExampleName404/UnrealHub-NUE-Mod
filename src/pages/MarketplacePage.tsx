@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Package, FolderOpen, ChevronDown, Box, Grid3X3, List, RefreshCw, LogIn, LogOut, Library, User, Globe, X, Download, Plus } from 'lucide-react';
+import { Search, Package, FolderOpen, ChevronDown, Box, Grid3X3, List, RefreshCw, LogIn, LogOut, Library, User, Globe, X, Download, Plus, Check } from 'lucide-react';
 import { useAppearance } from '../context/AppearanceContext';
 import { DownloadProgressPayload, VaultAssetInfo, EpicLibraryItem } from '../types';
 
@@ -108,7 +108,28 @@ export const MarketplacePage: React.FC = () => {
         try {
             const result = await window.unreal.epicGetLibrary();
             if (!result.error) {
-                setLibraryItems(result.items);
+                // Try to match against local vault assets to mark installed items
+                try {
+                    const vault = await window.unreal.getVaultAssets();
+                    console.log(`Vault has ${vault.length} assets with size > 0:`, vault.map(v => ({ appName: v.appName, size: v.sizeBytes, types: v.recognizedTypes })));
+                    const updated = result.items.map((it: EpicLibraryItem) => {
+                        const lowerApp = (it.appName || '').toLowerCase().trim();
+                        // STRICT: only mark as installed if vault asset has real size and exact appName match
+                        const found = vault.find(v => {
+                            if (!v || v.sizeBytes <= 0) return false; // Must have real files
+                            const va = (v.appName || '').toLowerCase().trim();
+                            // Exact match only
+                            return va === lowerApp;
+                        });
+                        if (found) {
+                            console.log(`✓ INSTALLED: ${it.title} (${lowerApp}) matches vault ${found.appName}`);
+                        }
+                        return { ...it, installed: !!found };
+                    });
+                    setLibraryItems(updated);
+                } catch (err) {
+                    setLibraryItems(result.items);
+                }
             } else if (result.error === 'not_logged_in') {
                 setEpicLoggedIn(false);
             }
@@ -127,11 +148,8 @@ export const MarketplacePage: React.FC = () => {
                 setLibraryItems(cached.items);
                 // Background refresh silently
                 setLibraryRefreshing(true);
-                window.unreal.epicGetLibrary().then(result => {
-                    if (!result.error && result.items.length > 0) {
-                        setLibraryItems(result.items);
-                    }
-                }).catch(() => {}).finally(() => setLibraryRefreshing(false));
+                // Use loadLibrary to ensure installed flags are computed consistently
+                loadLibrary().finally(() => setLibraryRefreshing(false));
                 return;
             }
         } catch { /* no cache */ }
@@ -186,6 +204,10 @@ export const MarketplacePage: React.FC = () => {
 
     const handleDownloadClick = () => {
         if (!selectedAsset) return;
+        setInstallTargetId('');
+        // Refresh targets when opening modal
+        window.unreal.getProjects().then(setLocalProjects).catch(console.error);
+        window.unreal.getEngines().then(setLocalEngines).catch(console.error);
         setInstallModalOpen(true);
     };
 
@@ -216,6 +238,7 @@ export const MarketplacePage: React.FC = () => {
                 setDownloadProgress(0);
                 if (payload.error !== 'aborted') {
                     console.error('Download error:', payload.error);
+                    alert(payload.error || t('marketplace.downloadFailed', 'Download failed'));
                 }
             } else if (payload.status === 'downloading_files') {
                 setDownloadStats({ downloadedMB: payload.downloadedMB || 0, totalMB: payload.totalMB || 0 });
@@ -225,22 +248,33 @@ export const MarketplacePage: React.FC = () => {
         return unsubscribe;
     }, [fetchVaultAssets]);
 
-    const startAssetDownload = async () => {
-        setInstallModalOpen(false);
-        if (!selectedAsset) return;
+    // Auto-refresh vault when tab opens
+    useEffect(() => {
+        if (activeTab !== 'vault') return;
+        fetchVaultAssets();
+    }, [activeTab, fetchVaultAssets]);
 
+    const startAssetDownload = async () => {
+        if (!selectedAsset) return;
+        if (!installTargetId) {
+            alert(t('marketplace.selectTarget', 'Please select an installation target'));
+            return;
+        }
+
+        setInstallModalOpen(false);
         setDownloadingAsset(selectedAsset);
         setIsDownloading(true);
         setDownloadProgress(0);
         setDownloadStats({ downloadedMB: 0, totalMB: 0 });
 
         try {
-            console.log(`Starting real download for: ${selectedAsset.title}`);
+            console.log(`Starting real download for: ${selectedAsset.title} to target: ${installTargetId}`);
             const result = await window.unreal.epicDownloadAsset(
                 selectedAsset.namespace, 
                 selectedAsset.catalogItemId || selectedAsset.id, 
                 selectedAsset.appName,
-                selectedAsset.title
+                selectedAsset.title,
+                installTargetId
             );
             
             if (result.error) {
@@ -392,12 +426,30 @@ export const MarketplacePage: React.FC = () => {
                                     `}
                                 >
                                     <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent-color)]/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                                    <div className="relative z-10 h-32 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
-                                        <Box size={40} className={`text-slate-700 ${!reduceAnimations ? 'group-hover:text-[var(--accent-color)]/40 transition-colors duration-500' : ''}`} />
+                                    <div className="relative z-10 h-32 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center overflow-hidden">
+                                        {asset.thumbnail ? (
+                                            <img
+                                                src={asset.thumbnail}
+                                                alt={asset.title}
+                                                className="absolute inset-0 w-full h-full object-cover"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                }}
+                                            />
+                                        ) : (
+                                            <Box size={40} className={`text-slate-700 ${!reduceAnimations ? 'group-hover:text-[var(--accent-color)]/40 transition-colors duration-500' : ''}`} />
+                                        )}
                                     </div>
                                     <div className="relative z-10 p-4">
                                         <h4 className="text-sm font-bold text-white truncate mb-1">{asset.title}</h4>
-                                        <div className="text-[11px] text-slate-500 font-mono truncate mb-3">{asset.appName}</div>
+                                        <div className="text-[11px] text-slate-500 font-mono truncate mb-2">{asset.appName}</div>
+                                        {asset.recognizedTypes && asset.recognizedTypes.length > 0 && (
+                                            <div className="flex gap-2 mb-2">
+                                                {asset.recognizedTypes.map((rt, i) => (
+                                                    <span key={i} className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 text-slate-200 border border-white/6">{rt}</span>
+                                                ))}
+                                            </div>
+                                        )}
                                         <div className="flex items-center justify-between text-xs">
                                             <span className="text-slate-500">{asset.buildVersion || 'Unknown version'}</span>
                                             {asset.sizeBytes > 0 && (
@@ -419,8 +471,19 @@ export const MarketplacePage: React.FC = () => {
                         <div className="space-y-2">
                             {filteredVault.map(asset => (
                                 <div key={asset.id} className={`flex items-center gap-4 bg-slate-900/50 border border-slate-800/50 rounded-xl px-4 py-3 ${!reduceAnimations ? 'hover:border-slate-700 transition-all duration-300' : ''}`}>
-                                    <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
-                                        <Box size={18} className="text-slate-500" />
+                                    <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center shrink-0 overflow-hidden">
+                                        {asset.thumbnail ? (
+                                            <img
+                                                src={asset.thumbnail}
+                                                alt={asset.title}
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                }}
+                                            />
+                                        ) : (
+                                            <Box size={18} className="text-slate-500" />
+                                        )}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <span className="text-sm font-semibold text-white truncate block">{asset.title}</span>
@@ -590,6 +653,13 @@ export const MarketplacePage: React.FC = () => {
                                                             <Package size={24} className="text-slate-600" />
                                                         )}
                                                     </div>
+
+                                                    {/* Installed badge */}
+                                                    {item.installed && (
+                                                        <div title="Downloaded" className="absolute top-2 left-2 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full z-20 flex items-center gap-1">
+                                                            <Check size={12} />
+                                                        </div>
+                                                    )}
         
                                                     {/* Title Bar */}
                                                     <div className="bg-slate-950 px-2 py-1.5 h-10 flex items-center justify-center text-center">
@@ -642,6 +712,7 @@ export const MarketplacePage: React.FC = () => {
                                                 </button>
                                                 <button onClick={handleDownloadClick} className="bg-slate-800 hover:bg-slate-700 text-white py-2.5 px-6 rounded-full text-[13px] font-bold transition-transform hover:scale-[1.02] hover:-translate-y-0.5 flex items-center justify-center gap-2 border border-slate-700">
                                                     <Download size={14} />
+                                                    {selectedAsset?.installed ? 'Install' : 'Download'}
                                                 </button>
                                             </div>
 
@@ -675,6 +746,10 @@ export const MarketplacePage: React.FC = () => {
                                                             <div className="bg-slate-900/50 p-3 rounded-xl border border-white/5">
                                                                 <span className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">{t('marketplace.supportedVersions', 'Supported Versions')}</span>
                                                                 <span className="text-white font-medium">{selectedAsset.compatibleVersions || t('marketplace.unknown', 'Unknown')}</span>
+                                                                {/* If there is exactly one specific supported version, show it explicitly */}
+                                                                {selectedAsset.versions && selectedAsset.versions.length === 1 && (
+                                                                    <div className="text-xs text-amber-300 mt-1">{t('marketplace.requiresVersion', 'Requires UE version')} {selectedAsset.versions[0]}</div>
+                                                                )}
                                                             </div>
                                                             <div className="bg-slate-900/50 p-3 rounded-xl border border-white/5">
                                                                 <span className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">{t('marketplace.modifiedDate', 'Modified Date')}</span>
@@ -770,12 +845,34 @@ export const MarketplacePage: React.FC = () => {
                         <div className="p-6 space-y-4">
                             <div className="space-y-1">
                                 {(() => {
-                                    const isProjectAsset = selectedAsset.categories?.includes('projects');
-                                    const isEnginePlugin = selectedAsset.categories?.includes('plugins') || selectedAsset.categories?.includes('codeplugins');
+                                    const isProjectAsset = selectedAsset.categories?.includes('projects') || selectedAsset.categories?.includes('templates');
+                                    const isEnginePlugin = selectedAsset.categories?.includes('plugins') || selectedAsset.categories?.includes('codeplugins') || selectedAsset.categories?.includes('engine');
+                                    
+                                    // Show loading state if we have no engines/projects yet
+                                    if ((isEnginePlugin || isProjectAsset) && localEngines.length === 0) {
+                                        return (
+                                            <div className="p-4 rounded-lg bg-slate-900/50 border border-slate-700/50">
+                                                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">Loading engines...</p>
+                                                <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-blue-500 rounded-full animate-pulse" style={{ width: '50%' }} />
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    if (!isEnginePlugin && !isProjectAsset && localProjects.length === 0) {
+                                        return (
+                                            <div className="p-4 rounded-lg bg-slate-900/50 border border-slate-700/50">
+                                                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">Loading projects...</p>
+                                                <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-blue-500 rounded-full animate-pulse" style={{ width: '50%' }} />
+                                                </div>
+                                            </div>
+                                        );
+                                    }
                                     
                                     let compatiblePrefixes: string[] = [];
                                     if (selectedAsset.versions && selectedAsset.versions.length > 0) {
-                                        compatiblePrefixes = selectedAsset.versions.map(s => s.trim().split('.').slice(0, 2).join('.'));
+                                        compatiblePrefixes = selectedAsset.versions.map(s => s.trim().split('.').slice(0, 2).join('.')).filter(Boolean);
                                     } else if (selectedAsset.compatibleVersions) {
                                         compatiblePrefixes = selectedAsset.compatibleVersions.split(',').map(s => s.trim().split('.').slice(0, 2).join('.')).filter(Boolean);
                                     }
@@ -785,20 +882,42 @@ export const MarketplacePage: React.FC = () => {
                                     
                                     if (isEnginePlugin || isProjectAsset) {
                                         label = isProjectAsset ? t('marketplace.selectEngineForProj', 'Engine for New Project:') : t('marketplace.selectEngine', 'Target Engine:');
-                                        const compatibleEngines = localEngines.filter(e => {
+                                        // Filter engines: first try compatible, if none found, show all
+                                        let compatibleEngines = localEngines.filter(e => {
+                                            if (!e.version) return false;
                                             const majorMinor = e.version.split('.').slice(0, 2).join('.');
                                             return compatiblePrefixes.length === 0 || compatiblePrefixes.includes(majorMinor);
                                         });
+                                        // Fallback: if no compatible found but we have compatible info, show all
+                                        if (compatibleEngines.length === 0 && compatiblePrefixes.length > 0) {
+                                            compatibleEngines = localEngines;
+                                        }
                                         options = compatibleEngines.map(e => ({ value: e.path, label: `Unreal Engine ${e.version}` }));
                                     } else {
                                         label = t('marketplace.selectProject', 'Target Project:');
-                                        const compatibleProjs = localProjects.filter(p => {
+                                        // Filter projects: first try compatible, if none found, show all
+                                        let compatibleProjs = localProjects.filter(p => {
                                             if (!p.version) return true;
                                             const majorMinor = p.version.split('.').slice(0, 2).join('.');
                                             return compatiblePrefixes.length === 0 || compatiblePrefixes.includes(majorMinor);
                                         });
-                                        options = compatibleProjs.map(p => ({ value: p.id, label: `${p.name} (${p.version || 'Unknown'})` }));
+                                        // Fallback: if no compatible found but we have compatible info, show all
+                                        if (compatibleProjs.length === 0 && compatiblePrefixes.length > 0) {
+                                            compatibleProjs = localProjects;
+                                        }
+                                        options = compatibleProjs.map(p => ({ value: p.path, label: `${p.name} (${p.version || 'Unknown'})` }));
                                     }
+
+                                    // Debug logging
+                                    console.log(`[Marketplace] Asset: ${selectedAsset.title}`, {
+                                        isProjectAsset,
+                                        isEnginePlugin,
+                                        compatibleVersions: selectedAsset.compatibleVersions,
+                                        compatiblePrefixes,
+                                        availableEngines: localEngines.map(e => e.version),
+                                        availableProjects: localProjects.map(p => p.name),
+                                        optionsCount: options.length
+                                    });
 
                                     return (
                                         <>
@@ -810,11 +929,16 @@ export const MarketplacePage: React.FC = () => {
                                             >
                                                 <option value="" disabled>{t('marketplace.selectTargetPlaceholder', 'Select a target...')}</option>
                                                 {options.length === 0 ? (
-                                                    <option disabled>{t('marketplace.noCompatibleTargets', 'No compatible targets found.')}</option>
+                                                    <option disabled>{isEnginePlugin ? 'No engines found' : 'No projects found'}</option>
                                                 ) : (
                                                     options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)
                                                 )}
                                             </select>
+                                            {options.length === 0 && (
+                                                <p className="text-xs text-slate-500 mt-1">
+                                                    {isEnginePlugin ? 'Please add an engine in the Engines tab.' : 'Please add a project in the Projects tab.'}
+                                                </p>
+                                            )}
                                         </>
                                     );
                                 })()}
@@ -824,7 +948,7 @@ export const MarketplacePage: React.FC = () => {
                             <button onClick={() => setInstallModalOpen(false)} className="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-red-700 hover:bg-red-600 transition-colors shadow-lg">
                                 {t('marketplace.cancel', 'Cancel')}
                             </button>
-                            <button onClick={() => { setInstallModalOpen(false); startAssetDownload(); }} className="px-6 py-2.5 rounded-xl text-sm font-bold bg-[#00cf54] text-white hover:bg-emerald-400 transition-colors shadow-[0_0_15px_rgba(0,207,84,0.3)]">
+                            <button onClick={() => startAssetDownload()} disabled={!installTargetId} className={`px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-[0_0_15px_rgba(0,207,84,0.3)] transition-colors ${installTargetId ? 'bg-[#00cf54] hover:bg-emerald-400' : 'bg-slate-600 cursor-not-allowed opacity-50'}`}>
                                 {t('marketplace.installIntoBtn', 'Install')}
                             </button>
                         </div>

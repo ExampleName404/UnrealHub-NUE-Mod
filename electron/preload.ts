@@ -78,7 +78,7 @@ contextBridge.exposeInMainWorld('unreal', {
   epicGetAssetManifest: (namespace: string, catalogItemId: string, appName: string) => ipcRenderer.invoke('epic-get-asset-manifest', namespace, catalogItemId, appName),
   epicSelectVaultDir: () => ipcRenderer.invoke('epic-select-vault-dir'),
   epicCancelDownload: () => ipcRenderer.invoke('epic-cancel-download'),
-  epicDownloadAsset: (namespace: string, catalogItemId: string, appName: string, title: string) => ipcRenderer.invoke('epic-download-asset', namespace, catalogItemId, appName, title),
+  epicDownloadAsset: (namespace: string, catalogItemId: string, appName: string, title: string, installTargetId: string) => ipcRenderer.invoke('epic-download-asset', namespace, catalogItemId, appName, title, installTargetId),
   epicStoreClientSecret: (secret: string) => ipcRenderer.invoke('epic-store-client-secret', secret),
   epicClearClientSecret: () => ipcRenderer.invoke('epic-clear-client-secret'),
   epicHasClientSecret: () => ipcRenderer.invoke('epic-has-client-secret'),

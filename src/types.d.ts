@@ -112,7 +112,7 @@ declare global {
             epicGetAssetManifest: (namespace: string, catalogItemId: string, appName: string) => Promise<unknown>;
             epicSelectVaultDir: () => Promise<string | null>;
             epicCancelDownload: () => Promise<boolean>;
-            epicDownloadAsset: (namespace: string, catalogItemId: string, appName: string, title: string) => Promise<{ error?: string }>;
+            epicDownloadAsset: (namespace: string, catalogItemId: string, appName: string, title: string, installTargetId: string) => Promise<{ error?: string }>;
             onDownloadAssetProgress: (callback: (payload: DownloadProgressPayload) => void) => () => void;
 
             // Epic client secret storage (keytar)
@@ -232,6 +232,9 @@ export interface VaultAssetInfo {
     buildVersion: string;
     installPath: string;
     sizeBytes: number;
+    installed?: boolean;
+    recognizedTypes?: string[];
+    thumbnail?: string;
 }
 
 export interface InstalledManifest {

@@ -48,6 +48,12 @@ export interface VaultAssetInfo {
     buildVersion: string;
     installPath: string;
     sizeBytes: number;
+    // Whether this vault entry was recognized as an installed asset
+    installed?: boolean;
+    // Types of recognizable content found (e.g. Content, Plugin, uasset)
+    recognizedTypes?: string[];
+    // Optional thumbnail image as base64 data URL
+    thumbnail?: string;
 }
 
 interface InstalledManifest {
@@ -123,6 +129,34 @@ async function scanPluginsRecursive(dirPath: string, maxDepth: number = 5): Prom
 async function scanVaultCache(): Promise<VaultAssetInfo[]> {
     const assets: VaultAssetInfo[] = [];
 
+    // Helper: try to extract a thumbnail from asset directory
+    const extractThumbnail = async (assetDir: string): Promise<string | undefined> => {
+        try {
+            // Look for common image files
+            const entries = await fs.readdir(assetDir, { withFileTypes: true });
+            const imageFiles = entries.filter(e => 
+                e.isFile() && /\.(png|jpg|jpeg|webp)$/i.test(e.name)
+            );
+            
+            if (imageFiles.length > 0) {
+                // Prefer .png, then .jpg/.jpeg
+                let imageFile = imageFiles.find(e => e.name.endsWith('.png'));
+                if (!imageFile) imageFile = imageFiles.find(e => /\.(jpg|jpeg)$/i.test(e.name));
+                if (!imageFile) imageFile = imageFiles[0];
+                
+                if (imageFile) {
+                    const imagePath = path.join(assetDir, imageFile.name);
+                    const imageBuffer = await fs.readFile(imagePath);
+                    const base64 = imageBuffer.toString('base64');
+                    const ext = path.extname(imageFile.name).toLowerCase().slice(1);
+                    const mimeType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+                    return `data:${mimeType};base64,${base64}`;
+                }
+            }
+        } catch { /* ignore thumbnail extraction errors */ }
+        return undefined;
+    };
+
     // Common vault cache locations on Windows & macOS
     const possiblePaths = [
         path.join(process.env.PROGRAMDATA || 'C:\\ProgramData', 'Epic', 'EpicGamesLauncher', 'VaultCache'),
@@ -134,12 +168,127 @@ async function scanVaultCache(): Promise<VaultAssetInfo[]> {
     for (const vaultPath of possiblePaths) {
         if (!existsSync(vaultPath)) continue;
 
+        const getRecursiveSize = async (dirPath: string): Promise<number> => {
+            let total = 0;
+            try {
+                const entries = await fs.readdir(dirPath, { withFileTypes: true });
+                for (const entry of entries) {
+                    const fullPath = path.join(dirPath, entry.name);
+                    if (entry.isDirectory()) {
+                        total += await getRecursiveSize(fullPath);
+                    } else if (entry.isFile()) {
+                        const stat = await fs.stat(fullPath);
+                        total += stat.size;
+                    }
+                }
+            } catch { /* ignore */ }
+            return total;
+        };
+
         try {
             const entries = await fs.readdir(vaultPath, { withFileTypes: true });
             for (const entry of entries) {
                 if (!entry.isDirectory()) continue;
 
                 const assetDir = path.join(vaultPath, entry.name);
+
+                // Legendary-style downloads or manual copies may store a top-level Content folder
+                // or various recognizable files (uasset, umap, .uplugin). Walk deeper to find them.
+                const recognizedTypes: string[] = [];
+                const findContentAndCount = async (p: string, depth = 4): Promise<{foundPath: string | null, size: number}> => {
+                    if (depth < 0) return { foundPath: null, size: 0 };
+                    try {
+                        if (!existsSync(p)) return { foundPath: null, size: 0 };
+                        const entries2 = await fs.readdir(p, { withFileTypes: true });
+                        // If a Content folder exists, prefer it
+                        const contentEntry = entries2.find(e => e.isDirectory() && e.name.toLowerCase() === 'content');
+                        if (contentEntry) {
+                            const contentPath = path.join(p, contentEntry.name);
+                            recognizedTypes.push('Content');
+                            const sz = await getRecursiveSize(contentPath);
+                            return { foundPath: contentPath, size: sz };
+                        }
+
+                        // Look for plugin descriptors or a folder containing .uasset/.umap
+                        let accumulatedSize = 0;
+                        for (const e2 of entries2) {
+                            const full = path.join(p, e2.name);
+                            if (e2.isFile()) {
+                                if (e2.name.endsWith('.uplugin')) {
+                                    recognizedTypes.push('Plugin');
+                                    const st = await fs.stat(full);
+                                    accumulatedSize += st.size;
+                                }
+                                if (e2.name.endsWith('.uasset') || e2.name.endsWith('.umap')) {
+                                    if (!recognizedTypes.includes('uasset')) recognizedTypes.push('uasset');
+                                    const st = await fs.stat(full);
+                                    accumulatedSize += st.size;
+                                }
+                            } else if (e2.isDirectory() && !e2.name.startsWith('.') && e2.name !== 'node_modules') {
+                                const res = await findContentAndCount(full, depth - 1);
+                                if (res.foundPath) return res;
+                                accumulatedSize += res.size;
+                            }
+                        }
+                        return { foundPath: null, size: accumulatedSize };
+                    } catch (e) {
+                        return { foundPath: null, size: 0 };
+                    }
+                };
+
+                const topResult = await findContentAndCount(assetDir, 5);
+                // Only add if we found meaningful content with real size
+                if ((topResult.foundPath || topResult.size > 0) && recognizedTypes.length > 0) {
+                    // Try to find a nice display name
+                    let displayName = entry.name;
+                    
+                    // 1. Try to read .manifest file for DisplayName
+                    try {
+                        const subEntries = await fs.readdir(assetDir, { withFileTypes: true });
+                        const manifestFile = subEntries
+                            .filter(e => e.isFile() && e.name.endsWith('.manifest'))
+                            .map(e => path.join(assetDir, e.name))[0];
+                        
+                        if (manifestFile && existsSync(manifestFile)) {
+                            const manifestContent = readFileSync(manifestFile, 'utf-8');
+                            const manifestData = JSON.parse(manifestContent);
+                            if (manifestData.DisplayName) {
+                                displayName = manifestData.DisplayName;
+                            }
+                        }
+                    } catch { /* ignore */ }
+                    
+                    // 2. If Content folder exists, try first subfolder name
+                    if (displayName === entry.name && topResult.foundPath) {
+                        try {
+                            const contentEntries = await fs.readdir(topResult.foundPath, { withFileTypes: true });
+                            const firstDir = contentEntries.find(e => e.isDirectory() && !e.name.startsWith('.'));
+                            if (firstDir) {
+                                displayName = firstDir.name;
+                            }
+                        } catch { /* ignore */ }
+                    }
+                    
+                    // 3. Try to extract thumbnail image
+                    const thumbnail = await extractThumbnail(assetDir);
+                    
+                    console.log(`[Vault] Adding: ${entry.name} (display="${displayName}") - size=${topResult.size}, types=${recognizedTypes.join(',')}`);
+                    assets.push({
+                        id: entry.name,
+                        appName: entry.name,
+                        catalogItemId: '',
+                        title: displayName,
+                        buildVersion: '',
+                        installPath: assetDir,
+                        sizeBytes: topResult.size,
+                        installed: true,
+                        recognizedTypes: recognizedTypes,
+                        thumbnail,
+                    });
+                    // If we detected meaningful content, continue to next asset
+                    if (topResult.foundPath) continue;
+                }
+
                 // Each vault asset has subdirectories with .manifest files
                 try {
                     const subEntries = await fs.readdir(assetDir, { withFileTypes: true });
@@ -189,6 +338,7 @@ async function scanVaultCache(): Promise<VaultAssetInfo[]> {
         }
     }
 
+    console.log(`[Vault] Scan complete: ${assets.length} assets found with content`);
     return assets;
 }
 

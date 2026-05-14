@@ -3,10 +3,95 @@ import https from 'node:https';
 import { URL } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import zlib from 'node:zlib';
+import { spawn, spawnSync } from 'node:child_process';
 
 // Download state
 let activeDownloadAbort: AbortController | null = null;
+
+function hasLegendaryCli(): boolean {
+    return resolveLegendaryCommand() !== null;
+}
+
+function resolveLegendaryCommand(): string | null {
+    const candidates = ['legendary'];
+    if (process.platform === 'win32') {
+        const appData = process.env.APPDATA;
+        if (appData) {
+            candidates.push(path.join(appData, 'Python', 'Python314', 'Scripts', 'legendary.exe'));
+            candidates.push(path.join(appData, 'Python', 'Python313', 'Scripts', 'legendary.exe'));
+            candidates.push(path.join(appData, 'Python', 'Python312', 'Scripts', 'legendary.exe'));
+            candidates.push(path.join(appData, 'Python', 'Python311', 'Scripts', 'legendary.exe'));
+        }
+    }
+
+    for (const candidate of candidates) {
+        try {
+            if (candidate !== 'legendary' && !fs.existsSync(candidate)) {
+                continue;
+            }
+            const res = spawnSync(candidate, ['--version'], { stdio: 'ignore' });
+            if (res.status === 0) return candidate;
+        } catch {
+            // try next
+        }
+    }
+
+    return null;
+}
+
+function runLegendaryCommand(args: string[], signal: AbortSignal, onLine?: (line: string) => void): Promise<{ code: number; output: string }> {
+    return new Promise((resolve, reject) => {
+        const cmd = resolveLegendaryCommand();
+        if (!cmd) {
+            reject(new Error('legendary CLI not found'));
+            return;
+        }
+
+        const child = spawn(cmd, args, {
+            windowsHide: true,
+            stdio: ['ignore', 'pipe', 'pipe'],
+        });
+
+        let output = '';
+        const onData = (buf: Buffer) => {
+            const text = buf.toString();
+            output += text;
+            if (onLine) {
+                text.split(/\r?\n/).forEach(line => {
+                    const trimmed = line.trim();
+                    if (trimmed) onLine(trimmed);
+                });
+            }
+        };
+
+        child.stdout.on('data', onData);
+        child.stderr.on('data', onData);
+        child.on('error', reject);
+        child.on('close', (code) => resolve({ code: code ?? -1, output }));
+
+        signal.addEventListener('abort', () => {
+            try { child.kill('SIGTERM'); } catch { /* ignore */ }
+        }, { once: true });
+    });
+}
+
+function resolveTargetRoot(installTargetId: string): string {
+    return installTargetId.toLowerCase().endsWith('.uproject') ? path.dirname(installTargetId) : installTargetId;
+}
+
+async function installDownloadedContentToProject(sourceAppName: string, installTargetId: string): Promise<boolean> {
+    const sourceRoot = path.join(getVaultDir(), sourceAppName);
+    const sourceContentDir = path.join(sourceRoot, 'Content');
+    if (!fs.existsSync(sourceContentDir)) return false;
+
+    const targetRoot = resolveTargetRoot(installTargetId);
+    const targetContentDir = path.join(targetRoot, 'Content');
+    await fsp.mkdir(targetContentDir, { recursive: true });
+    await fsp.cp(sourceContentDir, targetContentDir, { recursive: true, force: true });
+    return true;
+}
 
 function getVaultDir(): string {
     const configPath = path.join(app.getPath('userData'), 'vault_config.json');
@@ -782,10 +867,11 @@ export function registerEpicAuthHandlers() {
         return false;
     });
 
-    ipcMain.handle('epic-download-asset', async (event, namespace: string, catalogItemId: string, appName: string) => {
+    ipcMain.handle('epic-download-asset', async (event, namespace: string, catalogItemId: string, appName: string, title: string, installTargetId: string) => {
         const accessToken = await getValidToken(true);
         if (!accessToken) return { error: 'not_logged_in' };
         if (activeDownloadAbort) return { error: 'download_in_progress' };
+        if (!installTargetId) return { error: 'no_install_target' };
 
         const debugLogPath = path.join(app.getPath('desktop'), 'unrealhub-download.log');
         const log = (msg: string) => {
@@ -830,8 +916,29 @@ export function registerEpicAuthHandlers() {
             const manifests = element.manifests || [];
             if (!manifests.length) throw new Error('No manifest URLs found');
 
-            const manifestUrl = manifests[0].uri;
+            const manifestEntry = manifests[0] || {};
+            const manifestBaseUrl = manifestEntry.uri;
+            if (!manifestBaseUrl) throw new Error('Manifest URI missing in build response');
+
+            const manifestUrlObj = new URL(manifestBaseUrl);
+            const rawQueryParams = manifestEntry.queryParams;
+            if (Array.isArray(rawQueryParams)) {
+                for (const qp of rawQueryParams) {
+                    if (qp && typeof qp.name === 'string' && qp.value !== undefined && qp.value !== null) {
+                        manifestUrlObj.searchParams.set(qp.name, String(qp.value));
+                    }
+                }
+            } else if (rawQueryParams && typeof rawQueryParams === 'object') {
+                for (const [k, v] of Object.entries(rawQueryParams)) {
+                    if (v !== undefined && v !== null) {
+                        manifestUrlObj.searchParams.set(k, String(v));
+                    }
+                }
+            }
+
+            const manifestUrl = manifestUrlObj.toString();
             log(`Manifest URL: ${manifestUrl}`);
+            log(`Manifest entry keys: ${Object.keys(manifestEntry).join(', ')}`);
             const parsedManifestUrl = new URL(manifestUrl);
             const manifestQueryParams = parsedManifestUrl.search;
             
@@ -843,32 +950,201 @@ export function registerEpicAuthHandlers() {
             // For UE Marketplace plugins, the manifest is a JSON file if the app is an asset pack/plugin.
             
             sendProgress({ status: 'downloading_metadata', percent: 5 });
+
+            if (hasLegendaryCli()) {
+                let legendaryTotalMB = 0;
+                log('Using legendary CLI for manifest and chunk download.');
+
+                sendProgress({ status: 'downloading_files', percent: 0, downloadedMB: 0, totalMB: 0 });
+
+                // Authenticate legendary with an exchange token derived from our current Epic access token.
+                let exchangeToken = '';
+                try {
+                    const exchangeRes = await epicRequest({
+                        hostname: OAUTH_HOST,
+                        path: '/account/api/oauth/exchange',
+                        method: 'GET',
+                        headers: {
+                            Authorization: `bearer ${accessToken}`,
+                        },
+                    });
+                    exchangeToken = exchangeRes.data?.code || '';
+                } catch (e: any) {
+                    log(`Failed to get exchange token for legendary auth: ${e?.message || String(e)}`);
+                }
+
+                if (exchangeToken) {
+                    const authRes = await runLegendaryCommand(['auth', '--token', exchangeToken], abortController.signal, line => log(`[legendary auth] ${line}`));
+                    log(`Legendary auth token exit code: ${authRes.code}`);
+                } else {
+                    const authRes = await runLegendaryCommand(['auth', '--import'], abortController.signal, line => log(`[legendary auth] ${line}`));
+                    log(`Legendary auth import exit code: ${authRes.code}`);
+                }
+
+                const installArgs = ['install', appName, '--platform', 'Windows', '--download-only', '--base-path', getVaultDir(), '--manifest', manifestUrl, '--yes'];
+                const installRes = await runLegendaryCommand(installArgs, abortController.signal, line => {
+                    log(`[legendary] ${line}`);
+
+                    const downloadSizeMatch = line.match(/Download size:\s+([\d.]+)\s+MiB/i);
+                    if (downloadSizeMatch) {
+                        const size = Number(downloadSizeMatch[1]);
+                        if (!Number.isNaN(size)) legendaryTotalMB = size;
+                    }
+
+                    const downloadedMatch = line.match(/Downloaded:\s+([\d.]+)\s+MiB/i);
+                    const progressMatch = line.match(/Progress:\s+([\d.]+)%/i);
+                    if (downloadedMatch || progressMatch) {
+                        const downloadedMB = downloadedMatch ? Number(downloadedMatch[1]) : 0;
+                        const percent = progressMatch ? Number(progressMatch[1]) : (legendaryTotalMB > 0 ? (downloadedMB / legendaryTotalMB) * 100 : 0);
+                        sendProgress({
+                            status: 'downloading_files',
+                            percent: Math.max(0, Math.min(100, percent)),
+                            downloadedMB: Number.isNaN(downloadedMB) ? 0 : downloadedMB,
+                            totalMB: legendaryTotalMB,
+                        });
+                    }
+                });
+
+                if (installRes.code !== 0) {
+                    throw new Error(`Legendary fallback failed (exit ${installRes.code}). Output: ${installRes.output.slice(-1200)}`);
+                }
+
+                const installedToProject = await installDownloadedContentToProject(appName, installTargetId);
+                if (installedToProject) {
+                    log(`Copied legendary content into target project: ${installTargetId}`);
+                }
+
+                sendProgress({ status: 'completed', percent: 100, downloadedMB: legendaryTotalMB, totalMB: legendaryTotalMB });
+                activeDownloadAbort = null;
+                return { error: null, success: true };
+            }
             
             let manifestJson: any = null;
             
             // Fetch Manifest
-            const manifestDataStr = await new Promise<string>((resolve, reject) => {
-                const req = https.get(manifestUrl, { 
-                    headers: { 'User-Agent': 'AssetManagerStudio/1.00+++Portal+Release-Live.64bit' },
-                    signal: abortController.signal 
-                }, (res) => {
-                    if (res.statusCode !== 200) reject(new Error(`Manifest download failed: ${res.statusCode}`));
-                    let data = '';
-                    res.on('data', chunk => data += chunk);
-                    res.on('end', () => resolve(data));
+            const downloadManifest = async (url: string, headers: Record<string, string>) => {
+                return new Promise<string>((resolve, reject) => {
+                    const req = https.get(url, {
+                        headers,
+                        signal: abortController.signal,
+                    }, (res) => {
+                        if (res.statusCode !== 200) {
+                            return reject(new Error(`Manifest download failed: ${res.statusCode}`));
+                        }
+                        let data = '';
+                        res.on('data', chunk => data += chunk);
+                        res.on('end', () => resolve(data));
+                    });
+                    req.on('error', reject);
                 });
-                req.on('error', reject);
-            });
+            };
+
+            const baseManifestHeaders = {
+                'User-Agent': 'EpicGamesLauncher/16.5.0-0+++Portal+Release-Live',
+                'Accept': '*/*',
+                'Authorization': `bearer ${accessToken}`,
+            };
+
+            let manifestDataStr = '';
+            try {
+                manifestDataStr = await downloadManifest(manifestUrl, baseManifestHeaders);
+            } catch (firstErr: any) {
+                log(`Manifest primary fetch failed: ${firstErr?.message || String(firstErr)}; retrying with fallback headers`);
+                manifestDataStr = await downloadManifest(manifestUrl, {
+                    ...baseManifestHeaders,
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) EpicGamesLauncher',
+                    'Referer': 'https://www.epicgames.com/',
+                    'Origin': 'https://www.epicgames.com',
+                });
+            }
 
             try {
                 // If the manifest starts with '{', it's JSON.
                 if (manifestDataStr.trim().startsWith('{')) {
                     manifestJson = JSON.parse(manifestDataStr);
-                } else {
-                     throw new Error('Binary manifests are not supported yet, only JSON manifests are supported natively right now.');
                 }
             } catch (e: any) {
                 throw new Error(`Failed to parse manifest: ${e.message}`);
+            }
+
+            if (!manifestJson) {
+                log('Binary manifest detected. Falling back to legendary CLI downloader.');
+
+                if (!hasLegendaryCli()) {
+                    throw new Error('Binary manifest detected. Install legendary-gl and retry: py -m pip install --user legendary-gl');
+                }
+
+                let legendaryTotalMB = 0;
+                sendProgress({ status: 'downloading_files', percent: 0, downloadedMB: 0, totalMB: 0 });
+
+                // Authenticate legendary with an exchange token derived from our current Epic access token.
+                let exchangeToken = '';
+                try {
+                    const exchangeRes = await epicRequest({
+                        hostname: OAUTH_HOST,
+                        path: '/account/api/oauth/exchange',
+                        method: 'GET',
+                        headers: {
+                            Authorization: `bearer ${accessToken}`,
+                        },
+                    });
+                    exchangeToken = exchangeRes.data?.code || '';
+                } catch (e: any) {
+                    log(`Failed to get exchange token for legendary auth: ${e?.message || String(e)}`);
+                }
+
+                if (exchangeToken) {
+                    const authRes = await runLegendaryCommand(['auth', '--token', exchangeToken], abortController.signal, line => log(`[legendary auth] ${line}`));
+                    log(`Legendary auth token exit code: ${authRes.code}`);
+                } else {
+                    // Last resort attempt if exchange token couldn't be acquired.
+                    const authRes = await runLegendaryCommand(['auth', '--import'], abortController.signal, line => log(`[legendary auth] ${line}`));
+                    log(`Legendary auth import exit code: ${authRes.code}`);
+                }
+
+                const installArgs = ['install', appName, '--platform', 'Windows', '--download-only', '--base-path', getVaultDir(), '--yes'];
+                const installRes = await runLegendaryCommand(installArgs, abortController.signal, line => {
+                    log(`[legendary] ${line}`);
+                    const downloadSizeMatch = line.match(/Download size:\s+([\d.]+)\s+MiB/i);
+                    if (downloadSizeMatch) {
+                        const size = Number(downloadSizeMatch[1]);
+                        if (!Number.isNaN(size)) legendaryTotalMB = size;
+                    }
+
+                    const downloadedMatch = line.match(/Downloaded:\s+([\d.]+)\s+MiB/i);
+                    const progressMatch = line.match(/Progress:\s+([\d.]+)%/i);
+                    if (downloadedMatch || progressMatch) {
+                        const downloadedMB = downloadedMatch ? Number(downloadedMatch[1]) : 0;
+                        const percent = progressMatch ? Number(progressMatch[1]) : (legendaryTotalMB > 0 ? (downloadedMB / legendaryTotalMB) * 100 : 0);
+                        sendProgress({
+                            status: 'downloading_files',
+                            percent: Math.max(0, Math.min(100, percent)),
+                            downloadedMB: Number.isNaN(downloadedMB) ? 0 : downloadedMB,
+                            totalMB: legendaryTotalMB,
+                        });
+                    }
+
+                    const percentMatch = line.match(/(\d+(?:\.\d+)?)%/);
+                    if (percentMatch) {
+                        const pct = Number(percentMatch[1]);
+                        if (!Number.isNaN(pct)) {
+                            sendProgress({ status: 'downloading_files', percent: Math.max(0, Math.min(100, pct)), downloadedMB: 0, totalMB: legendaryTotalMB });
+                        }
+                    }
+                });
+
+                if (installRes.code !== 0) {
+                    throw new Error(`Legendary fallback failed (exit ${installRes.code}). Output: ${installRes.output.slice(-1200)}`);
+                }
+
+                const installedToProject = await installDownloadedContentToProject(appName, installTargetId);
+                if (installedToProject) {
+                    log(`Copied legendary content into target project: ${installTargetId}`);
+                }
+
+                sendProgress({ status: 'completed', percent: 100 });
+                activeDownloadAbort = null;
+                return { error: null, success: true };
             }
 
             fs.mkdirSync(manifestDir, { recursive: true });
