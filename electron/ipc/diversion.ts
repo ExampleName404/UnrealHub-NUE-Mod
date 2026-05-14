@@ -109,27 +109,81 @@ function projectDir(projectPath: string): string {
     return path.dirname(projectPath);
 }
 
-function parseCounts(statusText: string): { new: number; modified: number; deleted: number } {
-    // dv status output format is not officially documented. We do best-effort
-    // matching on common labels and fall back to line counting per category.
-    const lines = statusText.split(/\r?\n/);
-    let n = 0, m = 0, d = 0;
-    for (const raw of lines) {
+export type ChangeKind = 'new' | 'modified' | 'deleted';
+
+export interface ParsedStatus {
+    counts: { new: number; modified: number; deleted: number };
+    files: { path: string; kind: ChangeKind }[];
+}
+
+function classifyLine(line: string): { kind: ChangeKind; path: string } | null {
+    // "New file:    path", "new:    path", "?? path"
+    let m = line.match(/^(?:new\s*file|new|added|untracked)[\s:]+(.+)$/i);
+    if (m) return { kind: 'new', path: m[1].trim() };
+    m = line.match(/^\?\?\s+(.+)$/);
+    if (m) return { kind: 'new', path: m[1].trim() };
+
+    // "Modified: path", "M  path"
+    m = line.match(/^modified[\s:]+(.+)$/i);
+    if (m) return { kind: 'modified', path: m[1].trim() };
+    m = line.match(/^M\s+(.+)$/);
+    if (m) return { kind: 'modified', path: m[1].trim() };
+
+    // "Deleted: path", "D path"
+    m = line.match(/^deleted[\s:]+(.+)$/i);
+    if (m) return { kind: 'deleted', path: m[1].trim() };
+    m = line.match(/^D\s+(.+)$/);
+    if (m) return { kind: 'deleted', path: m[1].trim() };
+
+    return null;
+}
+
+function parseStatus(statusText: string): ParsedStatus {
+    const counts = { new: 0, modified: 0, deleted: 0 };
+    const files: { path: string; kind: ChangeKind }[] = [];
+
+    // Track header-section context so we can attach bare path lines to the
+    // right category if the CLI lists each file under a section header.
+    let currentSection: ChangeKind | null = null;
+
+    for (const raw of statusText.split(/\r?\n/)) {
         const line = raw.trim();
         if (!line) continue;
-        // Header-style: "New files: 12"
-        const headerNew = line.match(/^(new|added|untracked)[\s:]+(\d+)/i);
-        const headerMod = line.match(/^modified[\s:]+(\d+)/i);
-        const headerDel = line.match(/^deleted[\s:]+(\d+)/i);
-        if (headerNew) { n = Math.max(n, parseInt(headerNew[2], 10) || 0); continue; }
-        if (headerMod) { m = Math.max(m, parseInt(headerMod[1], 10) || 0); continue; }
-        if (headerDel) { d = Math.max(d, parseInt(headerDel[1], 10) || 0); continue; }
-        // Per-file lines like "M  path/to/file" or "new file: path"
-        if (/^(\?\?|new file|added|untracked)/i.test(line)) n += 1;
-        else if (/^(m\s+|modified)/i.test(line)) m += 1;
-        else if (/^(d\s+|deleted)/i.test(line)) d += 1;
+
+        // Section headers: "New files:", "Modified files:", "Deleted files:"
+        const sectionMatch = line.match(/^(new\s*files?|modified\s*files?|deleted\s*files?)\s*[:\-]?\s*(\d+)?\s*$/i);
+        if (sectionMatch) {
+            const head = sectionMatch[1].toLowerCase();
+            const count = sectionMatch[2] ? parseInt(sectionMatch[2], 10) : NaN;
+            if (head.startsWith('new')) {
+                currentSection = 'new';
+                if (!isNaN(count)) counts.new = Math.max(counts.new, count);
+            } else if (head.startsWith('modified')) {
+                currentSection = 'modified';
+                if (!isNaN(count)) counts.modified = Math.max(counts.modified, count);
+            } else {
+                currentSection = 'deleted';
+                if (!isNaN(count)) counts.deleted = Math.max(counts.deleted, count);
+            }
+            continue;
+        }
+
+        // Inline-classified line ("M path", "new file: path", etc.)
+        const cls = classifyLine(line);
+        if (cls && cls.path) {
+            files.push(cls);
+            counts[cls.kind] += 1;
+            continue;
+        }
+
+        // Bare path under the current section context.
+        if (currentSection && !line.endsWith(':') && /[\\/.]/.test(line)) {
+            files.push({ kind: currentSection, path: line });
+            counts[currentSection] += 1;
+        }
     }
-    return { new: n, modified: m, deleted: d };
+
+    return { counts, files };
 }
 
 interface ParsedCommit {
@@ -235,16 +289,49 @@ export function registerDiversionHandlers() {
     // ── Workspace status ────────────────────────────────────────────
     ipcMain.handle('diversion-get-status', async (_evt, projectPath: string) => {
         const cwd = projectDir(projectPath);
-        if (!cwd) return { error: 'no_project', counts: null, raw: '' };
+        if (!cwd) return { error: 'no_project', counts: null, files: [], raw: '' };
         const res = await runDv(['status'], cwd);
         if (!res.ok) {
             return {
                 error: res.stderr.trim() || `dv status exited with code ${res.code}`,
                 counts: null,
+                files: [],
                 raw: res.stdout,
             };
         }
-        return { error: null, counts: parseCounts(res.stdout), raw: res.stdout };
+        const parsed = parseStatus(res.stdout);
+        return { error: null, counts: parsed.counts, files: parsed.files, raw: res.stdout };
+    });
+
+    // ── Commit ──────────────────────────────────────────────────────
+    ipcMain.handle('diversion-commit', async (_evt, projectPath: string, message: string) => {
+        const cwd = projectDir(projectPath);
+        if (!cwd) return { success: false, error: 'no_project' };
+        const trimmed = (message || '').trim();
+        if (!trimmed) return { success: false, error: 'empty_message' };
+
+        // Try `dv commit -a -m "msg"` (auto-stage all changes). If the flag is
+        // not supported, fall back to `dv add . && dv commit -m "msg"`.
+        let res = await runDv(['commit', '-a', '-m', trimmed], cwd, 120000);
+        if (!res.ok) {
+            const addRes = await runDv(['add', '.'], cwd, 60000);
+            if (!addRes.ok) {
+                return {
+                    success: false,
+                    error: addRes.stderr.trim() || `dv add exited with code ${addRes.code}`,
+                    raw: addRes.stdout,
+                };
+            }
+            res = await runDv(['commit', '-m', trimmed], cwd, 120000);
+        }
+        if (!res.ok) {
+            return {
+                success: false,
+                error: res.stderr.trim() || `dv commit exited with code ${res.code}`,
+                raw: res.stdout,
+            };
+        }
+        return { success: true, raw: res.stdout };
     });
 
     // ── Commit history ──────────────────────────────────────────────
@@ -273,6 +360,40 @@ export function registerDiversionHandlers() {
             return { error: null, commits: parseTextLog(fallback.stdout), raw: fallback.stdout };
         }
         return { error: null, commits: parseTextLog(textRes.stdout), raw: textRes.stdout };
+    });
+
+    // ── Branch checkout ─────────────────────────────────────────────
+    ipcMain.handle('diversion-checkout-branch', async (_evt, projectPath: string, branchName: string) => {
+        const cwd = projectDir(projectPath);
+        if (!cwd) return { success: false, error: 'no_project' };
+        if (!branchName) return { success: false, error: 'empty_branch' };
+
+        // Diversion CLI doesn't publicly document a branch-switch command, so
+        // we try every plausible variant we've seen across docs/blog posts.
+        const attempts: string[][] = [
+            ['checkout', branchName],
+            ['co', branchName],
+            ['switch', branchName],
+            ['branch', '-co', branchName],
+            ['branch', '-s', branchName],
+            ['branch', '--checkout', branchName],
+        ];
+        const tried: { cmd: string; stderr: string }[] = [];
+        for (const args of attempts) {
+            const res = await runDv(args, cwd, 120000);
+            if (res.ok) return { success: true, raw: res.stdout, cmd: `dv ${args.join(' ')}` };
+            // Capture useful output only — skip Node's "Command failed" prefix.
+            let err = res.stderr.trim();
+            if (!err || err.startsWith('Command failed:')) err = res.stdout.trim();
+            tried.push({ cmd: `dv ${args.join(' ')}`, stderr: err });
+        }
+        const summary = tried
+            .map(t => `${t.cmd}\n${t.stderr || '(no output)'}`)
+            .join('\n\n---\n\n');
+        return {
+            success: false,
+            error: `No 'dv' branch-switch variant succeeded. Tried:\n\n${summary}`,
+        };
     });
 
     // ── Branches ────────────────────────────────────────────────────

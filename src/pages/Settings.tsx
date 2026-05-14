@@ -463,7 +463,7 @@ export const SettingsPage: React.FC = () => {
                                         {diversionDetailsOpen ? t('settings.diversion.hideDetails') : t('settings.diversion.showDetails')}
                                     </button>
                                     <a
-                                        href="https://diversion.dev/downloads"
+                                        href="https://get.diversion.dev/win"
                                         target="_blank"
                                         rel="noreferrer noopener"
                                         className="px-3 py-1.5 bg-[var(--accent-color)] hover:opacity-90 text-white rounded-lg text-sm transition-colors"

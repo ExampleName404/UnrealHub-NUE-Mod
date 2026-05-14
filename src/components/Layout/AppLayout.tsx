@@ -7,26 +7,15 @@ import { Project } from '../../types';
 import { TitleBar } from './TitleBar';
 import { useAppearance } from '../../context/AppearanceContext';
 
-const GitHistoryPage = lazy(() => import('../../pages/GitHistory').then(module => ({ default: module.GitHistoryPage })));
 const ConfigEditorPage = lazy(() => import('../../pages/ConfigEditorPage').then(module => ({ default: module.ConfigEditorPage })));
 const MarketplacePage = lazy(() => import('../../pages/MarketplacePage').then(module => ({ default: module.MarketplacePage })));
-const DiversionHistoryPage = lazy(() => import('../../pages/DiversionHistory').then(module => ({ default: module.DiversionHistoryPage })));
+const SourceControlPage = lazy(() => import('../../pages/SourceControlPage').then(module => ({ default: module.SourceControlPage })));
 const KanbanPage = lazy(() => import('../../pages/KanbanPage').then(module => ({ default: module.KanbanPage })));
 
 export const AppLayout: React.FC = () => {
-    const [view, setView] = useState<View | 'git' | 'config' | 'marketplace' | 'diversion'>('projects');
+    const [view, setView] = useState<View | 'config' | 'marketplace' | 'source-control'>('projects');
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
     const { bgEffect, fontSize, reduceAnimations } = useAppearance();
-
-    const handleOpenGit = (project: Project) => {
-        setSelectedProject(project);
-        setView('git');
-    };
-
-    const handleBackFromGit = () => {
-        setView('projects');
-        setSelectedProject(null);
-    };
 
     const handleOpenConfig = (project: Project) => {
         setSelectedProject(project);
@@ -38,12 +27,12 @@ export const AppLayout: React.FC = () => {
         setSelectedProject(null);
     };
 
-    const handleOpenDiversion = (project: Project) => {
+    const handleOpenSourceControl = (project: Project) => {
         setSelectedProject(project);
-        setView('diversion');
+        setView('source-control');
     };
 
-    const handleBackFromDiversion = () => {
+    const handleBackFromSourceControl = () => {
         setView('projects');
         setSelectedProject(null);
     };
@@ -64,10 +53,12 @@ export const AppLayout: React.FC = () => {
         }
     };
 
+    const isSubView = view === 'config' || view === 'source-control' || view === 'marketplace';
+
     return (
         <div className={`
             relative flex h-screen overflow-hidden font-sans text-white
-            ${getBgClass()} 
+            ${getBgClass()}
             ${getFontClass()}
             ${reduceAnimations ? '' : 'transition-colors duration-300'}
         `}>
@@ -80,34 +71,20 @@ export const AppLayout: React.FC = () => {
             </div>
             <div className="flex flex-1 overflow-hidden h-full w-full relative z-10">
                 <Sidebar
-                    currentView={(view === 'git' || view === 'config' || view === 'diversion') ? 'projects' : (view as View)}
+                    currentView={(view === 'config' || view === 'source-control') ? 'projects' : (view as View)}
                     onViewChange={setView}
                 />
-                <main className={`flex-1 bg-transparent border-l border-white/5 shadow-[-4px_0_24px_-8px_rgba(0,0,0,0.5)] ${(view === 'git' || view === 'config' || view === 'marketplace' || view === 'diversion') ? 'overflow-hidden pt-8' : 'overflow-auto pt-8'}`}>
+                <main className={`flex-1 bg-transparent border-l border-white/5 shadow-[-4px_0_24px_-8px_rgba(0,0,0,0.5)] ${isSubView ? 'overflow-hidden pt-8' : 'overflow-auto pt-8'}`}>
                     {view === 'marketplace' ? (
                         <div className="p-8 w-full h-full flex flex-col overflow-hidden">
                             <Suspense fallback={<div className="flex items-center justify-center h-full text-slate-500 text-sm">Loading Marketplace...</div>}>
                                 <MarketplacePage />
                             </Suspense>
                         </div>
-                    ) : view === 'git' && selectedProject ? (
-                        <div className="h-full w-full">
-                            <Suspense fallback={<div className="flex items-center justify-center h-full text-slate-500 text-sm">Loading Git History...</div>}>
-                                <GitHistoryPage
-                                    projectPath={selectedProject.path}
-                                    projectName={selectedProject.name}
-                                    onBack={handleBackFromGit}
-                                />
-                            </Suspense>
-                        </div>
-                    ) : view === 'diversion' && selectedProject ? (
-                        <div className="h-full w-full overflow-auto">
-                            <Suspense fallback={<div className="flex items-center justify-center h-full text-slate-500 text-sm">Loading Diversion History...</div>}>
-                                <DiversionHistoryPage
-                                    projectPath={selectedProject.path}
-                                    projectName={selectedProject.name}
-                                    onBack={handleBackFromDiversion}
-                                />
+                    ) : view === 'source-control' && selectedProject ? (
+                        <div className="p-8 w-full h-full flex flex-col overflow-hidden">
+                            <Suspense fallback={<div className="flex items-center justify-center h-full text-slate-500 text-sm">Loading Source Control...</div>}>
+                                <SourceControlPage project={selectedProject} onBack={handleBackFromSourceControl} />
                             </Suspense>
                         </div>
                     ) : view === 'config' && selectedProject ? (
@@ -123,7 +100,7 @@ export const AppLayout: React.FC = () => {
                     ) : (
                         <div className={`p-8 w-full min-h-full flex flex-col ${reduceAnimations ? '' : 'transition-all duration-300'}`}>
                             <div className="flex-1 min-h-0">
-                                {view === 'projects' && <ProjectsPage onOpenGit={handleOpenGit} onOpenConfig={handleOpenConfig} onOpenDiversion={handleOpenDiversion} />}
+                                {view === 'projects' && <ProjectsPage onOpenSourceControl={handleOpenSourceControl} onOpenConfig={handleOpenConfig} />}
                                 {view === 'engines' && <EnginesPage />}
                                 {view === 'kanban' && (
                                     <Suspense fallback={<div className="flex items-center justify-center h-full text-slate-500 text-sm">Loading Kanban...</div>}>

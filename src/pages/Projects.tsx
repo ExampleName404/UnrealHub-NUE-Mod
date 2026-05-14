@@ -14,9 +14,8 @@ import { getTagColor } from '../utils/tagUtils';
 import { useProjects, useFavorites, useTags } from '../hooks/useProjects';
 
 interface ProjectsPageProps {
-    onOpenGit?: (project: Project) => void;
+    onOpenSourceControl?: (project: Project) => void;
     onOpenConfig?: (project: Project) => void;
-    onOpenDiversion?: (project: Project) => void;
 }
 
 type SortMode = 'date' | 'name' | 'engine';
@@ -74,7 +73,7 @@ function modeToPref(mode: VcsMode): import('../types').ProjectVcsPref | null {
     }
 }
 
-export const ProjectsPage: React.FC<ProjectsPageProps> = ({ onOpenGit, onOpenConfig, onOpenDiversion }) => {
+export const ProjectsPage: React.FC<ProjectsPageProps> = ({ onOpenSourceControl, onOpenConfig }) => {
     const { t } = useTranslation();
     const { reduceAnimations } = useAppearance();
 
@@ -115,6 +114,10 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({ onOpenGit, onOpenCon
         if (pref === 'off') return false;
         return kind === 'git' ? showGit : showDiversion;
     }, [vcsPrefs, showGit, showDiversion]);
+
+    const hasAnyVcs = useCallback((projectPath: string) => {
+        return effectiveShow(projectPath, 'git') || effectiveShow(projectPath, 'diversion');
+    }, [effectiveShow]);
 
     const [viewMode, setViewMode] = useState<'grid' | 'list'>(() =>
         (localStorage.getItem('projectViewMode') as 'grid' | 'list') || 'grid'
@@ -812,16 +815,14 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({ onOpenGit, onOpenCon
                         viewMode={viewMode}
                         cardSize={cardSize}
                         reduceAnimations={reduceAnimations}
-                        showGit={effectiveShow(project.path, 'git')}
-                        showDiversion={effectiveShow(project.path, 'diversion')}
+                        showSourceControl={hasAnyVcs(project.path)}
                         isFavorite={favorites.includes(project.path)}
                         projectSize={projectSizes[project.path] || 0}
                         tags={allTags[project.path] || []}
                         onContextMenu={handleContextMenu}
                         onToggleFavorite={toggleFavorite}
                         onEdit={handleEditClick}
-                        onOpenGit={onOpenGit}
-                        onOpenDiversion={onOpenDiversion}
+                        onOpenSourceControl={onOpenSourceControl}
                         onLaunch={handleLaunch}
                     />
                 ))}

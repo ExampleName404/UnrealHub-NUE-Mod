@@ -137,6 +137,7 @@ declare global {
             diversionGetStatus: (projectPath: string) => Promise<{
                 error: string | null;
                 counts: DiversionStatusCounts | null;
+                files: DiversionChangedFile[];
                 raw: string;
             }>;
             diversionGetHistory: (projectPath: string, limit?: number) => Promise<{
@@ -148,6 +149,17 @@ declare global {
                 error: string | null;
                 branches: string[];
                 current: string;
+            }>;
+            diversionCommit: (projectPath: string, message: string) => Promise<{
+                success: boolean;
+                error?: string;
+                raw?: string;
+            }>;
+            diversionCheckoutBranch: (projectPath: string, branchName: string) => Promise<{
+                success: boolean;
+                error?: string;
+                raw?: string;
+                cmd?: string;
             }>;
         };
     }
@@ -164,6 +176,12 @@ export interface DiversionStatusCounts {
     modified: number;
     deleted: number;
 }
+
+export interface DiversionChangedFile {
+    path: string;
+    kind: 'new' | 'modified' | 'deleted';
+}
+
 
 export interface DiversionCommit {
     id?: string;

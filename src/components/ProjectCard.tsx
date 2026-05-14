@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Image as ImageIcon, GitBranch, Pencil, Star, HardDrive, Plug2 } from 'lucide-react';
+import { Play, Image as ImageIcon, GitBranch, Pencil, Star, HardDrive } from 'lucide-react';
 import { Project } from '../types';
 import { getTagColor } from '../utils/tagUtils';
 
@@ -16,16 +16,14 @@ interface ProjectCardProps {
     viewMode: 'grid' | 'list';
     cardSize: 'small' | 'medium' | 'large';
     reduceAnimations: boolean;
-    showGit: boolean;
-    showDiversion?: boolean;
+    showSourceControl: boolean;
     isFavorite: boolean;
     projectSize: number;
     tags: string[];
     onContextMenu: (e: React.MouseEvent, project: Project) => void;
     onToggleFavorite: (path: string, e?: React.MouseEvent) => void;
     onEdit: (project: Project, e?: React.MouseEvent) => void;
-    onOpenGit?: (project: Project) => void;
-    onOpenDiversion?: (project: Project) => void;
+    onOpenSourceControl?: (project: Project) => void;
     onLaunch: (path: string, args?: string) => void;
 }
 
@@ -34,16 +32,14 @@ export const ProjectCard = React.memo<ProjectCardProps>(({
     viewMode,
     cardSize,
     reduceAnimations,
-    showGit,
-    showDiversion,
+    showSourceControl,
     isFavorite,
     projectSize,
     tags,
     onContextMenu,
     onToggleFavorite,
     onEdit,
-    onOpenGit,
-    onOpenDiversion,
+    onOpenSourceControl,
     onLaunch
 }) => {
     const { t } = useTranslation();
@@ -124,22 +120,13 @@ export const ProjectCard = React.memo<ProjectCardProps>(({
                     >
                         <Pencil size={16} />
                     </button>
-                    {showGit && (
+                    {showSourceControl && (
                         <button
-                            onClick={(e) => { e.stopPropagation(); onOpenGit?.(project); }}
+                            onClick={(e) => { e.stopPropagation(); onOpenSourceControl?.(project); }}
                             className="p-2 rounded-full text-slate-500 hover:text-white hover:bg-[var(--accent-color)] transition-colors"
-                            title={t('projects.gitHistory')}
+                            title={t('sourceControl.cardButton')}
                         >
                             <GitBranch size={16} />
-                        </button>
-                    )}
-                    {showDiversion && (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onOpenDiversion?.(project); }}
-                            className="p-2 rounded-full text-slate-500 hover:text-white hover:bg-[var(--accent-color)] transition-colors"
-                            title={t('diversion.menuItem')}
-                        >
-                            <Plug2 size={16} />
                         </button>
                     )}
                     <button
@@ -203,22 +190,13 @@ export const ProjectCard = React.memo<ProjectCardProps>(({
                 >
                     <Pencil size={16} />
                 </button>
-                {showGit && (
+                {showSourceControl && (
                     <button
-                        onClick={(e) => { e.stopPropagation(); onOpenGit?.(project); }}
+                        onClick={(e) => { e.stopPropagation(); onOpenSourceControl?.(project); }}
                         className="p-2.5 rounded-full bg-slate-950/60 backdrop-blur-md text-slate-200 hover:text-white hover:bg-[var(--accent-color)] border border-white/10 transition-colors shadow-lg"
-                        title={t('projects.gitHistory')}
+                        title={t('sourceControl.cardButton')}
                     >
                         <GitBranch size={16} />
-                    </button>
-                )}
-                {showDiversion && (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onOpenDiversion?.(project); }}
-                        className="p-2.5 rounded-full bg-slate-950/60 backdrop-blur-md text-slate-200 hover:text-white hover:bg-[var(--accent-color)] border border-white/10 transition-colors shadow-lg"
-                        title={t('diversion.menuItem')}
-                    >
-                        <Plug2 size={16} />
                     </button>
                 )}
             </div>

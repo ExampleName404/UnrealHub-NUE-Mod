@@ -106,4 +106,8 @@ contextBridge.exposeInMainWorld('unreal', {
   diversionGetHistory: (projectPath: string, limit?: number) =>
     ipcRenderer.invoke('diversion-get-history', projectPath, limit),
   diversionGetBranches: (projectPath: string) => ipcRenderer.invoke('diversion-get-branches', projectPath),
+  diversionCommit: (projectPath: string, message: string) =>
+    ipcRenderer.invoke('diversion-commit', projectPath, message),
+  diversionCheckoutBranch: (projectPath: string, branchName: string) =>
+    ipcRenderer.invoke('diversion-checkout-branch', projectPath, branchName),
 })

@@ -7,6 +7,7 @@ interface GitHistoryPageProps {
     projectPath: string;
     projectName: string;
     onBack: () => void;
+    embedded?: boolean;
 }
 
 interface GraphNode {
@@ -44,7 +45,7 @@ const formatRelativeDate = (dateStr: string): string => {
     return date.toLocaleDateString();
 };
 
-export const GitHistoryPage: React.FC<GitHistoryPageProps> = ({ projectPath, projectName, onBack }) => {
+export const GitHistoryPage: React.FC<GitHistoryPageProps> = ({ projectPath, projectName, onBack, embedded }) => {
     const { t } = useTranslation();
     const [commits, setCommits] = useState<GitCommit[]>([]);
     const [loading, setLoading] = useState(true);
@@ -186,31 +187,41 @@ export const GitHistoryPage: React.FC<GitHistoryPageProps> = ({ projectPath, pro
     }, [status]);
 
     return (
-        <div className="flex flex-col h-full bg-slate-950 text-slate-200 overflow-hidden">
+        <div className={`flex flex-col h-full ${embedded ? '' : 'bg-slate-950'} text-slate-200 overflow-hidden`}>
             {/* Header */}
-            <div className="flex items-center gap-4 border-b border-white/5 px-5 py-3.5 bg-gradient-to-r from-slate-900/80 to-slate-950 shrink-0 backdrop-blur-md">
-                <button
-                    onClick={onBack}
-                    className="p-2 hover:bg-white/5 rounded-lg transition-all text-slate-400 hover:text-white active:scale-95"
-                >
-                    <ArrowLeft size={20} />
-                </button>
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500/20 to-orange-600/10 border border-orange-500/20 flex items-center justify-center">
-                        <GitIcon size={16} className="text-orange-400" />
+            {!embedded && (
+                <div className="flex items-center gap-4 border-b border-white/5 px-5 py-3.5 bg-gradient-to-r from-slate-900/80 to-slate-950 shrink-0 backdrop-blur-md">
+                    <button
+                        onClick={onBack}
+                        className="p-2 hover:bg-white/5 rounded-lg transition-all text-slate-400 hover:text-white active:scale-95"
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500/20 to-orange-600/10 border border-orange-500/20 flex items-center justify-center">
+                            <GitIcon size={16} className="text-orange-400" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-bold text-white leading-tight">{t('git.title')}</h2>
+                            <p className="text-[11px] text-slate-500 leading-tight">{projectName}</p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-sm font-bold text-white leading-tight">{t('git.title')}</h2>
-                        <p className="text-[11px] text-slate-500 leading-tight">{projectName}</p>
-                    </div>
+                    {status?.current && (
+                        <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-lg bg-teal-500/10 border border-teal-500/15 text-teal-400">
+                            <GitIcon size={12} />
+                            <span className="text-xs font-medium">{status.current}</span>
+                        </div>
+                    )}
                 </div>
-                {status?.current && (
-                    <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-lg bg-teal-500/10 border border-teal-500/15 text-teal-400">
+            )}
+            {embedded && status?.current && (
+                <div className="flex items-center justify-end gap-2 px-1 pb-2">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-teal-500/10 border border-teal-500/15 text-teal-400">
                         <GitIcon size={12} />
                         <span className="text-xs font-medium">{status.current}</span>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
 
             <div className="flex-1 flex min-h-0 gap-0">
                 {/* Sidebar */}
