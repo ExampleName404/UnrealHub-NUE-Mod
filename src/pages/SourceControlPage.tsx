@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Image as ImageIcon, GitBranch, GitCommit, History, ListChecks } from 'lucide-react';
+import { ArrowLeft, Image as ImageIcon, GitBranch, History, ListChecks } from 'lucide-react';
 import { GitHistoryPage } from './GitHistory';
 import { DiversionHistoryPage } from './DiversionHistory';
 import type { Project, ProjectVcsPref } from '../types';

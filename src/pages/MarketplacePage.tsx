@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Package, FolderOpen, ChevronDown, Box, Grid3X3, List, RefreshCw, LogIn, LogOut, Library, User, Globe, X, Download, Plus, Check } from 'lucide-react';
+import { Search, Package, FolderOpen, ChevronDown, Box, Grid3X3, List, RefreshCw, LogIn, LogOut, Library, User, Globe, X, Download, Plus, Check, Trash2 } from 'lucide-react';
 import { useAppearance } from '../context/AppearanceContext';
 import { DownloadProgressPayload, VaultAssetInfo, EpicLibraryItem } from '../types';
 
@@ -40,7 +40,7 @@ export const MarketplacePage: React.FC = () => {
     const [downloadingAsset, setDownloadingAsset] = useState<EpicLibraryItem | null>(null);
 
     // Local Hub State (for deployment)
-    const [localProjects, setLocalProjects] = useState<{id: string, name: string, version: string}[]>([]);
+    const [localProjects, setLocalProjects] = useState<{id: string, name: string, version: string, path: string}[]>([]);
     const [localEngines, setLocalEngines] = useState<{version: string, path: string}[]>([]);
 
     useEffect(() => {
@@ -296,6 +296,48 @@ export const MarketplacePage: React.FC = () => {
         setDownloadProgress(0);
     };
 
+    const handleDeleteAsset = async (assetId: string, title: string) => {
+        if (!confirm(t('marketplace.confirmDelete', `Are you sure you want to delete "${title}"?`))) {
+            return;
+        }
+        try {
+            setVaultLoading(true);
+            const result = await window.unreal.deleteVaultAsset(assetId);
+            if (result.success) {
+                // Remove from list and refresh
+                setVaultAssets(prev => prev.filter(a => a.id !== assetId));
+            } else {
+                alert(t('marketplace.deleteFailed', 'Failed to delete asset: ') + result.error);
+            }
+        } catch (e) {
+            console.error('Delete failed:', e);
+            alert(t('marketplace.deleteError', 'An error occurred while deleting'));
+        } finally {
+            setVaultLoading(false);
+        }
+    };
+
+    const handleClearVaultCache = async () => {
+        if (!confirm(t('marketplace.confirmClearVault', 'Are you sure you want to clear the entire vault cache? This will delete all assets.'))) {
+            return;
+        }
+        try {
+            setVaultLoading(true);
+            const result = await window.unreal.clearVaultCache();
+            if (result.success) {
+                setVaultAssets([]);
+                alert(t('marketplace.vaultCleared', `Vault cache cleared. ${result.deleted} asset(s) deleted.`));
+            } else {
+                alert(t('marketplace.clearFailed', 'Failed to clear vault: ') + result.error);
+            }
+        } catch (e) {
+            console.error('Clear failed:', e);
+            alert(t('marketplace.clearError', 'An error occurred while clearing vault'));
+        } finally {
+            setVaultLoading(false);
+        }
+    };
+
     return (
         <div className="flex-1 min-h-0 relative flex flex-col h-full w-full">
             {/* Header */}
@@ -394,6 +436,14 @@ export const MarketplacePage: React.FC = () => {
                         >
                             <RefreshCw size={16} className={vaultLoading ? 'animate-spin' : ''} />
                         </button>
+                        <button
+                            onClick={handleClearVaultCache}
+                            disabled={vaultLoading || vaultAssets.length === 0}
+                            title={t('marketplace.clearVault', 'Clear vault cache')}
+                            className={`p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-red-400 hover:border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed ${!reduceAnimations ? 'transition-all duration-300' : ''}`}
+                        >
+                            <Trash2 size={16} />
+                        </button>
                     </div>
 
                     <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
@@ -456,13 +506,22 @@ export const MarketplacePage: React.FC = () => {
                                                 <span className="text-slate-600 font-medium">{formatBytes(asset.sizeBytes)}</span>
                                             )}
                                         </div>
-                                        <button
-                                            onClick={() => window.unreal.showPluginInExplorer(asset.installPath)}
-                                            className={`mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 ${!reduceAnimations ? 'transition-all duration-200' : ''}`}
-                                        >
-                                            <FolderOpen size={12} />
-                                            {t('marketplace.openFolder', 'Open Folder')}
-                                        </button>
+                                        <div className="flex gap-2 mt-3">
+                                            <button
+                                                onClick={() => window.unreal.showPluginInExplorer(asset.installPath)}
+                                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 ${!reduceAnimations ? 'transition-all duration-200' : ''}`}
+                                            >
+                                                <FolderOpen size={12} />
+                                                {t('marketplace.openFolder', 'Open Folder')}
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteAsset(asset.id, asset.title)}
+                                                className={`py-2 px-2 rounded-lg text-xs font-medium bg-red-900/20 text-red-400 hover:text-red-300 hover:bg-red-900/40 border border-red-900/30 hover:border-red-700/50 ${!reduceAnimations ? 'transition-all duration-200' : ''}`}
+                                                title={t('marketplace.deleteAsset', 'Delete asset')}
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -495,6 +554,13 @@ export const MarketplacePage: React.FC = () => {
                                     )}
                                     <button onClick={() => window.unreal.showPluginInExplorer(asset.installPath)} className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors">
                                         <FolderOpen size={14} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteAsset(asset.id, asset.title)}
+                                        className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-900/20 transition-colors"
+                                        title={t('marketplace.deleteAsset', 'Delete asset')}
+                                    >
+                                        <Trash2 size={14} />
                                     </button>
                                 </div>
                             ))}

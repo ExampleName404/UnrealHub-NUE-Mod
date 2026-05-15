@@ -101,6 +101,8 @@ declare global {
             getVaultAssets: () => Promise<VaultAssetInfo[]>;
             getInstalledManifests: () => Promise<InstalledManifest[]>;
             showPluginInExplorer: (pluginPath: string) => Promise<void>;
+            deleteVaultAsset: (assetId: string) => Promise<{ success: boolean; error?: string }>;
+            clearVaultCache: () => Promise<{ success: boolean; deleted: number; error?: string }>;
 
             // Epic Auth API
             epicAuthStatus: () => Promise<{ loggedIn: boolean; displayName?: string; accountId?: string }>;

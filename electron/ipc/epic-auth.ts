@@ -867,7 +867,7 @@ export function registerEpicAuthHandlers() {
         return false;
     });
 
-    ipcMain.handle('epic-download-asset', async (event, namespace: string, catalogItemId: string, appName: string, title: string, installTargetId: string) => {
+    ipcMain.handle('epic-download-asset', async (event, namespace: string, catalogItemId: string, appName: string, _title: string, installTargetId: string) => {
         const accessToken = await getValidToken(true);
         if (!accessToken) return { error: 'not_logged_in' };
         if (activeDownloadAbort) return { error: 'download_in_progress' };

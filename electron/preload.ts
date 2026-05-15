@@ -67,6 +67,8 @@ contextBridge.exposeInMainWorld('unreal', {
   getVaultAssets: () => ipcRenderer.invoke('get-vault-assets'),
   getInstalledManifests: () => ipcRenderer.invoke('get-installed-manifests'),
   showPluginInExplorer: (pluginPath: string) => ipcRenderer.invoke('show-plugin-in-explorer', pluginPath),
+  deleteVaultAsset: (assetId: string) => ipcRenderer.invoke('delete-vault-asset', assetId),
+  clearVaultCache: () => ipcRenderer.invoke('clear-vault-cache'),
 
   // Epic Auth API
   epicAuthStatus: () => ipcRenderer.invoke('epic-auth-status'),

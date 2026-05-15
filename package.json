@@ -1,7 +1,7 @@
 {
   "name": "unreal-hub",
   "private": true,
-  "version": "2.2.8",
+  "version": "1.0.0",
   "description": "Unreal Engine manager for personal use",
   "type": "module",
   "scripts": {
@@ -12,7 +12,7 @@
   },
   "build": {
     "appId": "com.unrealhub.manager",
-    "productName": "NUE Mod",
+    "productName": "Unreal Hub NUE Mod 1.0.0",
     "directories": {
       "output": "release/${version}"
     },

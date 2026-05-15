@@ -54,6 +54,7 @@ export const DiversionHistoryPage: React.FC<DiversionHistoryPageProps> = ({ proj
     const [currentBranch, setCurrentBranch] = useState('');
     const [branchError, setBranchError] = useState<string | null>(null);
     const [switchingBranch, setSwitchingBranch] = useState(false);
+    const isLoading = state.kind === 'loading';
 
     const reload = useCallback(async () => {
         setState({ kind: 'loading' });
@@ -179,10 +180,10 @@ export const DiversionHistoryPage: React.FC<DiversionHistoryPageProps> = ({ proj
                         )}
                         <button
                             onClick={reload}
-                            disabled={state.kind === 'loading'}
+                            disabled={isLoading}
                             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--accent-color)] hover:brightness-110 disabled:opacity-50 text-white text-sm transition-all"
                         >
-                            <RefreshCcw size={14} className={state.kind === 'loading' ? 'animate-spin' : ''} />
+                            <RefreshCcw size={14} className={isLoading ? 'animate-spin' : ''} />
                             {t('diversion.refresh')}
                         </button>
                     </div>
@@ -202,10 +203,10 @@ export const DiversionHistoryPage: React.FC<DiversionHistoryPageProps> = ({ proj
                     )}
                     <button
                         onClick={reload}
-                        disabled={state.kind === 'loading'}
+                        disabled={isLoading}
                         className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--accent-color)] hover:brightness-110 disabled:opacity-50 text-white text-xs transition-all"
                     >
-                        <RefreshCcw size={12} className={state.kind === 'loading' ? 'animate-spin' : ''} />
+                        <RefreshCcw size={12} className={isLoading ? 'animate-spin' : ''} />
                         {t('diversion.refresh')}
                     </button>
                 </div>

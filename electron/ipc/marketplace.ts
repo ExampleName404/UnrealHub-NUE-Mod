@@ -376,6 +376,88 @@ async function scanInstalledManifests(): Promise<InstalledManifest[]> {
     return items;
 }
 
+async function deleteRecursive(dirPath: string): Promise<void> {
+    try {
+        const entries = await fs.readdir(dirPath, { withFileTypes: true });
+        for (const entry of entries) {
+            const fullPath = path.join(dirPath, entry.name);
+            if (entry.isDirectory()) {
+                await deleteRecursive(fullPath);
+            } else {
+                await fs.unlink(fullPath);
+            }
+        }
+        await fs.rmdir(dirPath);
+    } catch (e) {
+        console.error(`Error deleting ${dirPath}:`, e);
+        throw e;
+    }
+}
+
+async function deleteVaultAsset(assetId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const possiblePaths = [
+            path.join(process.env.PROGRAMDATA || 'C:\\ProgramData', 'Epic', 'EpicGamesLauncher', 'VaultCache'),
+            path.join(process.env.LOCALAPPDATA || '', 'EpicGamesLauncher', 'VaultCache'),
+            path.join('/Users/Shared/Epic Games/EpicGamesLauncher/VaultCache'),
+            path.join(os.homedir(), 'Library', 'Application Support', 'Epic', 'EpicGamesLauncher', 'VaultCache')
+        ];
+
+        for (const vaultPath of possiblePaths) {
+            if (!existsSync(vaultPath)) continue;
+
+            const assetDir = path.join(vaultPath, assetId);
+            if (existsSync(assetDir)) {
+                await deleteRecursive(assetDir);
+                console.log(`[Vault] Deleted asset: ${assetId}`);
+                return { success: true };
+            }
+        }
+
+        return { success: false, error: 'Asset not found' };
+    } catch (e) {
+        const error = e instanceof Error ? e.message : 'Unknown error';
+        console.error(`Error deleting vault asset ${assetId}:`, error);
+        return { success: false, error };
+    }
+}
+
+async function clearVaultCache(): Promise<{ success: boolean; deleted: number; error?: string }> {
+    try {
+        let totalDeleted = 0;
+        const possiblePaths = [
+            path.join(process.env.PROGRAMDATA || 'C:\\ProgramData', 'Epic', 'EpicGamesLauncher', 'VaultCache'),
+            path.join(process.env.LOCALAPPDATA || '', 'EpicGamesLauncher', 'VaultCache'),
+            path.join('/Users/Shared/Epic Games/EpicGamesLauncher/VaultCache'),
+            path.join(os.homedir(), 'Library', 'Application Support', 'Epic', 'EpicGamesLauncher', 'VaultCache')
+        ];
+
+        for (const vaultPath of possiblePaths) {
+            if (!existsSync(vaultPath)) continue;
+
+            try {
+                const entries = await fs.readdir(vaultPath, { withFileTypes: true });
+                for (const entry of entries) {
+                    if (entry.isDirectory()) {
+                        const assetDir = path.join(vaultPath, entry.name);
+                        await deleteRecursive(assetDir);
+                        totalDeleted++;
+                    }
+                }
+            } catch (e) {
+                console.error(`Error clearing vault at ${vaultPath}:`, e);
+            }
+        }
+
+        console.log(`[Vault] Cleared cache: ${totalDeleted} assets deleted`);
+        return { success: true, deleted: totalDeleted };
+    } catch (e) {
+        const error = e instanceof Error ? e.message : 'Unknown error';
+        console.error('Error clearing vault cache:', error);
+        return { success: false, deleted: 0, error };
+    }
+}
+
 export function registerMarketplaceHandlers() {
     // Scan all plugins in an engine's Plugin directory
     ipcMain.handle('scan-engine-plugins', async (_, enginePath: string) => {
@@ -405,5 +487,15 @@ export function registerMarketplaceHandlers() {
     ipcMain.handle('show-plugin-in-explorer', async (_, pluginPath: string) => {
         const { shell } = await import('electron');
         shell.showItemInFolder(pluginPath);
+    });
+
+    // Delete a single vault asset
+    ipcMain.handle('delete-vault-asset', async (_, assetId: string) => {
+        return deleteVaultAsset(assetId);
+    });
+
+    // Clear entire vault cache
+    ipcMain.handle('clear-vault-cache', async () => {
+        return clearVaultCache();
     });
 }
