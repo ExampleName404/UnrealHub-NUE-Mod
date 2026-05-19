@@ -324,6 +324,26 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({ onOpenSourceControl,
                             }
                         });
                     }}
+                    onClearSaveGames={() => {
+                        const p = ctxMenu.project;
+                        showDialog({
+                            type: 'confirm',
+                            variant: 'destructive',
+                            title: t('dialogs.cleanSaveGamesTitle') || 'Clear SaveGames',
+                            message: t('dialogs.cleanSaveGamesMessage'),
+                            confirmText: t('dialogs.clean'),
+                            onConfirm: () => {
+                                handleAction(async () => {
+                                    const res = await window.unreal.cleanProjectSaveGames(p.path);
+                                    if (res.success) {
+                                        showDialog({ type: 'alert', variant: 'success', title: t('dialogs.success'), message: t('dialogs.cleanSaveGamesSuccess'), onConfirm: () => { } });
+                                    } else {
+                                        showDialog({ type: 'alert', variant: 'destructive', title: t('dialogs.error'), message: t('dialogs.cleanSaveGamesError', { error: res.error || '' }), onConfirm: () => { } });
+                                    }
+                                });
+                            }
+                        });
+                    }}
                     onCleanBinaries={() => {
                         const p = ctxMenu.project;
                         showDialog({

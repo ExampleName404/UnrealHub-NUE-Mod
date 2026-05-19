@@ -20,6 +20,7 @@ interface ContextMenuProps {
     onRemove: () => void;
     onSmartBackup: () => void;
     onGitAutoBackup: () => void;
+    onClearSaveGames: () => void;
     onDeleteProject: () => void;
     onKanban: () => void;
 }
@@ -27,7 +28,7 @@ interface ContextMenuProps {
 export const ContextMenu: React.FC<ContextMenuProps> = ({
     x, y, projectName, onClose,
     onLaunch, onShowInExplorer, onShowLogs,
-    onCleanCache, onCleanBinaries, onClone, onEditConfig, onManageTags, onStats, onNotes, onRemove, onSmartBackup, onGitAutoBackup, onDeleteProject, onKanban
+    onCleanCache, onCleanBinaries, onClone, onEditConfig, onManageTags, onStats, onNotes, onRemove, onSmartBackup, onGitAutoBackup, onClearSaveGames, onDeleteProject, onKanban
 }) => {
     const { t } = useTranslation();
     const menuRef = useRef<HTMLDivElement>(null);
@@ -38,10 +39,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             const stored = localStorage.getItem('contextMenuConfig');
             if (stored) {
                 setMenuConfig(JSON.parse(stored));
-            } else {
+                } else {
                 setMenuConfig({
                     launch: true, showInExplorer: true, showLogs: true,
-                    cleanCache: true, cleanBinaries: true, clone: true,
+                    cleanCache: true, clearSaveGames: true, cleanBinaries: true, clone: true,
                     editConfig: true, manageTags: true, stats: true, notes: true, kanban: true, smartBackup: true, gitAutoBackup: true, removeProject: true, deleteProject: true
                 });
             }
@@ -162,6 +163,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                     <button onClick={onCleanCache} className="w-full text-left px-3 py-2 hover:bg-slate-800/80 rounded-md flex items-center gap-3 transition-all group">
                         <Eraser size={15} className="text-yellow-400 group-hover:scale-110 transition-transform" />
                         <span className="font-medium">{t('contextMenu.cleanCache')}</span>
+                    </button>
+                )}
+
+                {isVisible('clearSaveGames') && (
+                    <button onClick={onClearSaveGames} className="w-full text-left px-3 py-2 hover:bg-slate-800/80 rounded-md flex items-center gap-3 transition-all group">
+                        <Eraser size={15} className="text-sky-400 group-hover:scale-110 transition-transform" />
+                        <span className="font-medium">{t('contextMenu.clearSaveGames')}</span>
                     </button>
                 )}
 

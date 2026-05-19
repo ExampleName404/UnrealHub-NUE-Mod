@@ -203,6 +203,7 @@
     "menuItem": "Diversion Geçmişi"
   },
   "contextMenu": {
+    "clearSaveGames": "SaveGames'i Temizle",
     "launch": "Projeyi Başlat",
     "showInExplorer": "Dosya Gezgininde Göster",
     "showLogs": "Log Dosyalarını Göster",
@@ -232,6 +233,10 @@
     "error": "Hata",
     "cleanCacheSuccess": "Önbellek başarıyla temizlendi.",
     "cleanCacheError": "Önbellek temizlenirken hata oluştu.",
+    "cleanSaveGamesTitle": "SaveGames'i Temizle",
+    "cleanSaveGamesMessage": "Bu işlem projenin 'Saved/SaveGames' klasöründeki tüm kayıtları kalıcı olarak silecektir. Geri alınamaz. Devam edilsin mi?",
+    "cleanSaveGamesSuccess": "SaveGames başarıyla temizlendi.",
+    "cleanSaveGamesError": "SaveGames temizlenemedi: {{error}}",
     "cleanBinariesTitle": "Binary'leri Sil",
     "cleanBinariesMessage": "Projenin 'Binaries' klasöründeki HER ŞEY silinecek (derlenmiş DLL'ler, PDB'ler, paketlenmiş build'ler vb.). C++ projeleri yeniden derlenmesi gerekecek. Devam edilsin mi?",
     "cleanBinariesSuccess": "Binary'ler başarıyla silindi.",

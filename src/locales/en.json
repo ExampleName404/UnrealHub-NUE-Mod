@@ -203,6 +203,7 @@
     "menuItem": "Diversion History"
   },
   "contextMenu": {
+  "clearSaveGames": "Clear SaveGames",
     "launch": "Launch Project",
     "showInExplorer": "Show in Explorer",
     "showLogs": "Show Logs",
@@ -232,6 +233,10 @@
     "error": "Error",
     "cleanCacheSuccess": "Cache cleaned successfully.",
     "cleanCacheError": "Error cleaning cache.",
+    "cleanSaveGamesTitle": "Clear SaveGames",
+    "cleanSaveGamesMessage": "This will permanently delete all files inside the project's 'Saved/SaveGames' folder. This action cannot be undone. Continue?",
+    "cleanSaveGamesSuccess": "SaveGames cleared successfully.",
+    "cleanSaveGamesError": "Failed to clear SaveGames: {{error}}",
     "cleanBinariesTitle": "Delete Binaries",
     "cleanBinariesMessage": "This will delete EVERYTHING inside the project's 'Binaries' folder (compiled DLLs, PDBs, packaged builds, etc.). C++ projects will need to be recompiled. Continue?",
     "cleanBinariesSuccess": "Binaries deleted successfully.",

@@ -68,6 +68,7 @@ declare global {
             openProjectLog: (path: string) => Promise<void>;
             cleanProjectCache: (path: string) => Promise<void>;
             cleanProjectBinaries: (path: string) => Promise<{ success: boolean; removed?: boolean; error?: string }>;
+            cleanProjectSaveGames: (path: string) => Promise<{ success: boolean; removed?: boolean; error?: string }>;
 
             getProjectStats: (path: string) => Promise<{ blueprints: number, assets: number, maps: number, cpp: number, h: number }>;
             cloneProject: (path: string, newName: string) => Promise<void>;

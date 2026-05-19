@@ -203,6 +203,7 @@
     "menuItem": "История Diversion"
   },
   "contextMenu": {
+    "clearSaveGames": "Очистить SaveGames",
     "launch": "Запустить проект",
     "showInExplorer": "Показать в проводнике",
     "showLogs": "Показать логи",
@@ -232,6 +233,10 @@
     "error": "Ошибка",
     "cleanCacheSuccess": "Кэш успешно очищен.",
     "cleanCacheError": "Ошибка при очистке кэша.",
+    "cleanSaveGamesTitle": "Очистить SaveGames",
+    "cleanSaveGamesMessage": "Это удалит все сохранения в папке 'Saved/SaveGames' проекта. Действие необратимо. Продолжить?",
+    "cleanSaveGamesSuccess": "Сохранения успешно удалены.",
+    "cleanSaveGamesError": "Не удалось удалить сохранения: {{error}}",
     "cleanBinariesTitle": "Удалить бинарники",
     "cleanBinariesMessage": "Будет удалено ВСЁ содержимое папки 'Binaries' проекта (скомпилированные DLL, PDB, упакованные сборки и т.д.). C++ проекты придётся пересобирать. Продолжить?",
     "cleanBinariesSuccess": "Бинарники успешно удалены.",

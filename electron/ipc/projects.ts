@@ -362,6 +362,23 @@ export function registerProjectHandlers() {
         await invalidateProjectSizeCache(projectPath);
     });
 
+    ipcMain.handle('clean-project-savegames', async (_, projectPath: string) => {
+        const projectDir = path.dirname(projectPath);
+        const saveGamesPath = path.join(projectDir, 'Saved', 'SaveGames');
+        if (!existsSync(saveGamesPath)) {
+            return { success: true, removed: false };
+        }
+        try {
+            // Remove the SaveGames folder and recreate it empty to ensure clean state
+            await fs.rm(saveGamesPath, { recursive: true, force: true });
+            await fs.mkdir(saveGamesPath, { recursive: true });
+            await invalidateProjectSizeCache(projectPath);
+            return { success: true, removed: true };
+        } catch (e: any) {
+            return { success: false, error: e?.message || 'Unknown error' };
+        }
+    });
+
     ipcMain.handle('clean-project-binaries', async (_, projectPath: string) => {
         const projectDir = path.dirname(projectPath);
         const binariesPath = path.join(projectDir, 'Binaries');

@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('unreal', {
   openProjectLog: (path: string) => ipcRenderer.invoke('open-project-log', path),
   cleanProjectCache: (path: string) => ipcRenderer.invoke('clean-project-cache', path),
   cleanProjectBinaries: (path: string) => ipcRenderer.invoke('clean-project-binaries', path),
+  cleanProjectSaveGames: (path: string) => ipcRenderer.invoke('clean-project-savegames', path),
 
   getProjectStats: (path: string) => ipcRenderer.invoke('get-project-stats', path),
   cloneProject: (path: string, newName: string) => ipcRenderer.invoke('clone-project', path, newName),
